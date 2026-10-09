@@ -656,9 +656,14 @@ func _render_catalog() -> void:
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		catalog_list.add_child(row)
 	if count == 0:
-		var message := "Consultando Supabase…" if not finished.get(current_key, false) else "No hay resultados para este filtro."
-		if errors.has(current_key):
-			message = "Catálogo inaccesible.\n" + str(errors[current_key])
+		var message := "Consultando Supabase…"
+		if finished.get(current_key, false):
+			if errors.has(current_key):
+				message = "Catálogo inaccesible.\n" + str(errors[current_key])
+			elif entries.is_empty() and query.is_empty():
+				message = "Supabase no devolvió filas visibles. El catálogo puede estar vacío o la RLS puede limitar su lectura."
+			else:
+				message = "No hay resultados para este filtro."
 		var empty := _label(message, 11, MUTED)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		catalog_list.add_child(empty)
