@@ -281,8 +281,8 @@ func _build_ui() -> void:
 	var process_lab_content := VBoxContainer.new()
 	process_lab_content.add_theme_constant_override("separation", 6)
 	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
-	process_lab_content.add_child(_label("RESOLVER PROCESO · DEMANDA DE ETERIUM", 9, TEAL))
-	process_requirements_label = _label("Las magnitudes requeridas se muestran según la ley cuantitativa registrada.", 9, MUTED)
+	process_lab_content.add_child(_label("DEMANDA DE ETERIUM", 11, TEAL))
+	process_requirements_label = _label("Magnitudes requeridas por la ley registrada.", 11, MUTED)
 	process_requirements_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	process_lab_content.add_child(process_requirements_label)
 	var process_options := HBoxContainer.new()
@@ -292,7 +292,7 @@ func _build_ui() -> void:
 	oris_column.add_theme_constant_override("separation", 3)
 	oris_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	process_options.add_child(oris_column)
-	oris_column.add_child(_label("ORIS COMPATIBLE CON EL PROCESO", 9, MUTED))
+	oris_column.add_child(_label("ORIS", 10, MUTED))
 	process_oris_option = OptionButton.new()
 	process_oris_option.add_theme_stylebox_override("normal", _field_style())
 	process_oris_option.add_theme_color_override("font_color", TEXT_COLOR)
@@ -323,7 +323,7 @@ func _build_ui() -> void:
 	var context_row := VBoxContainer.new()
 	context_row.add_theme_constant_override("separation", 3)
 	process_lab_content.add_child(context_row)
-	context_row.add_child(_label("CONTEXTO / RESOLUCIÓN FÍSICA · JSON", 9, MUTED))
+	context_row.add_child(_label("CONTEXTO FÍSICO · JSON", 10, MUTED))
 	process_context_input = TextEdit.new()
 	process_context_input.custom_minimum_size.y = 62
 	process_context_input.placeholder_text = "{\"masa_objetivo\": 2, \"temperatura_inicial\": 300}"
@@ -341,15 +341,15 @@ func _build_ui() -> void:
 
 	result_panel = _panel()
 	result_panel.visible = false
-	result_panel.custom_minimum_size.y = 112
+	result_panel.custom_minimum_size.y = 94
 	center.add_child(result_panel)
 	var result_content := VBoxContainer.new()
 	result_content.add_theme_constant_override("separation", 4)
 	result_panel.add_child(_with_margin(result_content, 9))
-	result_content.add_child(_label("RESPUESTA DEL MOTOR", 9, TEAL))
-	result_label = _label("", 11, TEXT_COLOR)
+	result_content.add_child(_label("RESULTADO", 11, TEAL))
+	result_label = _label("", 12, TEXT_COLOR)
 	result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	result_label.custom_minimum_size.y = 60
+	result_label.custom_minimum_size.y = 42
 	result_content.add_child(result_label)
 
 	var right_panel := _panel()
@@ -358,8 +358,8 @@ func _build_ui() -> void:
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 7)
 	right_panel.add_child(_with_margin(right, 11))
-	right.add_child(_label("INSPECTOR", 10, MUTED))
-	inspector_title = _label("Trazabilidad canónica", 13, ACCENT)
+	right.add_child(_label("DETALLES", 11, MUTED))
+	inspector_title = _label("Registro seleccionado", 15, ACCENT)
 	right.add_child(inspector_title)
 	var inspector_scroll := ScrollContainer.new()
 	inspector_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -367,7 +367,7 @@ func _build_ui() -> void:
 	right.add_child(inspector_scroll)
 	inspector_content = VBoxContainer.new()
 	inspector_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inspector_content.add_theme_constant_override("separation", 10)
+	inspector_content.add_theme_constant_override("separation", 7)
 	inspector_scroll.add_child(inspector_content)
 
 
@@ -1202,8 +1202,8 @@ func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> vo
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 3)
 	inspector_content.add_child(block)
-	block.add_child(_label(heading.to_upper(), 9, MUTED))
-	var label := _label(value if not value.is_empty() else "Sin dato registrado", 11, tint)
+	block.add_child(_label(heading.to_upper(), 10, MUTED))
+	var label := _label(value if not value.is_empty() else "Sin dato registrado", 12, tint)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	block.add_child(label)
