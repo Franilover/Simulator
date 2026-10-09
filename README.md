@@ -7,7 +7,7 @@ Aplicación nativa en Godot 4.7 para explorar visualmente el canon de Garlia y c
 - **Procesos:** catálogo canónico, entradas, transformaciones, salidas, conservación, leyes cuantitativas, fórmulas, variables requeridas y modelos de resolución.
 - **Demanda de Eterium:** selecciona un proceso y un Oris realmente vinculado. Introduce el contexto físico como JSON y el simulador consulta la función RPC calcular_requerimiento_eterium_proceso_v1, que integra organización, demanda física, coste temporal y estabilización.
 - **Oris / IUM:** consulta Oris, IUMs y partículas TASI; revisa topologías funcionales, composición de partículas, régimen de Garin y demanda estructural.
-- **Montaje IUM experimental:** selecciona uno o más IUMs y solicita simular_organizacion_ium_v1. El resultado expone salidas funcionales, uniones, procesos candidatos y ambigüedad. Los enlaces se ordenan según la selección y se envían como dirigidos.
+- **Montaje IUM experimental:** selecciona uno o más IUMs y mira la vista previa de sus salidas principales en el orden seleccionado. Después solicita simular_organizacion_ium_v1; el resultado expone salidas funcionales, uniones, procesos candidatos y ambigüedad. Los enlaces se envían como dirigidos.
 - **Materia:** catálogos de elementos, compuestos, materiales y estructuras; propiedades y relaciones canónicas disponibles.
 - **Cálculo de materia:** simula compuestos desde elementos y materiales desde compuestos mediante simular_compuesto_desde_elementos y simular_material_desde_compuestos.
 - **Objetos y organismos:** consulta objetos físicos, materiales, geometrías, estructuras, sistemas y órganos biológicos.
@@ -39,7 +39,7 @@ En **Materia → Elementos**, selecciona dos o más elementos para pedir un comp
 
 La app usa únicamente una clave publishable de Supabase, apta para clientes públicos. No incluye service_role, claves secretas ni credenciales de usuario. Los catálogos se consultan en modo lectura; las operaciones POST son llamadas a funciones RPC de cálculo y no operaciones de escritura. Supabase sigue aplicando sus permisos y políticas RLS.
 
-Si una tabla o vista no permite lectura por el Data API, la interfaz muestra errores en lugar de asumir que el canon está vacío. Los grafos son representaciones visuales de relaciones registradas, no un sustituto de las funciones de cálculo.
+Si una tabla o vista no permite lectura por el Data API, la interfaz muestra el error correspondiente. Si Supabase responde con un arreglo vacío, la interfaz advierte que puede tratarse de un catálogo vacío o de filas limitadas por RLS; no deduce que el canon completo esté vacío. Los grafos son representaciones visuales de relaciones registradas, no un sustituto de las funciones de cálculo.
 
 ## Estructura
 
