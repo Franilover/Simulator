@@ -715,9 +715,13 @@ func _toggle_selection() -> void:
 		selected_ids.erase(ident)
 	else:
 		selected_ids.append(ident)
+	last_rpc.clear()
+	result_panel.visible = false
 	_render_catalog()
+	_render_graph()
+	_render_inspector()
 	_refresh_actions()
-	_set_status("%d registro(s) seleccionados" % selected_ids.size(), ACCENT)
+	_set_status("%d registro(s) preparados" % selected_ids.size(), ACCENT)
 
 
 func _refresh_actions() -> void:
