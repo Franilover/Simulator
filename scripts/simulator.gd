@@ -1,0 +1,1044 @@
+extends Control
+
+const SupabaseConfig = preload("res://scripts/supabase_config.gd")
+
+const BG := Color("#11111b")
+const SURFACE := Color("#181825")
+const SURFACE_ALT := Color("#1e1e2e")
+const BORDER := Color("#313244")
+const TEXT_COLOR := Color("#cdd6f4")
+const MUTED := Color("#a6adc8")
+const ACCENT := Color("#b4befe")
+const TEAL := Color("#94e2d5")
+const GREEN := Color("#a6e3a1")
+const YELLOW := Color("#f9e2af")
+const ORANGE := Color("#fab387")
+const RED := Color("#f38ba8")
+const LAVENDER := Color("#cba6f7")
+
+class FlowCanvas extends Control:
+	var nodes_data: Array = []
+	var caption := ""
+	const INK := Color("#cdd6f4")
+	const SUBTLE := Color("#6c7086")
+	const LINE := Color("#45475a")
+
+	func set_graph(data: Array, title_text: String) -> void:
+		nodes_data = data
+		caption = title_text
+		queue_redraw()
+
+	func _draw() -> void:
+		draw_rect(Rect2(Vector2.ZERO, size), Color("#141420"), true)
+		var gx := 0.0
+		while gx < size.x:
+			draw_line(Vector2(gx, 0), Vector2(gx, size.y), Color(0.42, 0.43, 0.55, 0.13), 1.0)
+			gx += 28.0
+		var gy := 0.0
+		while gy < size.y:
+			draw_line(Vector2(0, gy), Vector2(size.x, gy), Color(0.42, 0.43, 0.55, 0.13), 1.0)
+			gy += 28.0
+		draw_string(ThemeDB.fallback_font, Vector2(18, 24), caption.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 10, SUBTLE)
+		if nodes_data.is_empty():
+			draw_string(ThemeDB.fallback_font, Vector2(22, size.y * 0.52), "Selecciona una entidad para inspeccionar sus relaciones.", HORIZONTAL_ALIGNMENT_LEFT, size.x - 44, 14, INK)
+			return
+
+		var count := nodes_data.size()
+		var gap := 14.0
+		var margin_x := 18.0
+		var usable := size.x - margin_x * 2.0 - gap * float(count - 1)
+		var box_width := maxf(82.0, usable / float(count))
+		if box_width > 178.0:
+			box_width = 178.0
+		var full_width := box_width * float(count) + gap * float(count - 1)
+		var start_x := maxf(margin_x, (size.x - full_width) * 0.5)
+		var box_height := 136.0
+		var start_y := maxf(52.0, (size.y - box_height) * 0.5)
+
+		for index in range(count):
+			var data: Dictionary = nodes_data[index]
+			var px := start_x + float(index) * (box_width + gap)
+			var rect := Rect2(Vector2(px, start_y), Vector2(box_width, box_height))
+			var tint: Color = data.get("color", ACCENT)
+			if index < count - 1:
+				var y_mid := start_y + box_height * 0.51
+				var x1 := rect.end.x + 2.0
+				var x2 := px + box_width + gap - 3.0
+				draw_line(Vector2(x1, y_mid), Vector2(x2, y_mid), LINE, 2.0, true)
+				draw_colored_polygon(PackedVector2Array([
+					Vector2(x2, y_mid),
+					Vector2(x2 - 7.0, y_mid - 4.0),
+					Vector2(x2 - 7.0, y_mid + 4.0)
+				]), LINE)
+
+			draw_rect(rect, Color("#1b1b2b"), true)
+			draw_rect(rect, tint, false, 1.4)
+			draw_rect(Rect2(rect.position, Vector2(box_width, 4.0)), tint, true)
+			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 9, tint)
+			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 13, -1, INK)
+			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 10, -1, Color("#a6adc8"))
+		draw_string(ThemeDB.fallback_font, Vector2(18, size.y - 14), "%02d ETAPAS VISUALIZADAS" % count, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, SUBTLE)
+
+	func _short(value: String, length: int) -> String:
+		if value.length() <= length:
+			return value
+		return value.substr(0, length - 1) + "…"
+
+	func _wrap(value: String, width: int) -> String:
+		var words := value.split(" ")
+		var lines: Array[String] = []
+		var current := ""
+		for word in words:
+			if current.length() + word.length() + 1 > width and not current.is_empty():
+				lines.append(current)
+				current = word
+			else:
+				if not current.is_empty():
+					current += " "
+				current += word
+		if not current.is_empty():
+			lines.append(current)
+		if lines.size() > 3:
+			lines = lines.slice(0, 3)
+			lines[2] = _short(lines[2], width)
+		return "\n".join(lines)
+
+
+var catalogs: Dictionary = {}
+var relations: Dictionary = {}
+var finished: Dictionary = {}
+var errors: Dictionary = {}
+var selected: Dictionary = {}
+var selected_ids: Array[String] = []
+var current_mode := "Procesos"
+var current_key := "procesos"
+var last_rpc: Dictionary = {}
+var success_count := 0
+
+var mode_tabs: HBoxContainer
+var subnav: HBoxContainer
+var catalog_list: VBoxContainer
+var search_input: LineEdit
+var graph: FlowCanvas
+var inspector_content: VBoxContainer
+var status_label: Label
+var status_dot: ColorRect
+var count_labels: Dictionary = {}
+var selection_button: Button
+var simulate_button: Button
+var result_panel: PanelContainer
+var result_label: Label
+var graph_title: Label
+var inspector_title: Label
+
+
+func _ready() -> void:
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_build_ui()
+	_set_mode("Procesos")
+	_load_catalogues()
+
+
+func _build_ui() -> void:
+	var backdrop := ColorRect.new()
+	backdrop.color = BG
+	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(backdrop)
+
+	var outer := MarginContainer.new()
+	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	outer.add_theme_constant_override("margin_left", 18)
+	outer.add_theme_constant_override("margin_right", 18)
+	outer.add_theme_constant_override("margin_top", 14)
+	outer.add_theme_constant_override("margin_bottom", 12)
+	add_child(outer)
+
+	var page := VBoxContainer.new()
+	page.add_theme_constant_override("separation", 11)
+	outer.add_child(page)
+
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 12)
+	page.add_child(header)
+
+	var identity := VBoxContainer.new()
+	identity.add_theme_constant_override("separation", 2)
+	header.add_child(identity)
+	identity.add_child(_label("GARLIA  /  LABORATORIO DE SISTEMAS", 10, ACCENT))
+	identity.add_child(_label("Simulator", 28, TEXT_COLOR))
+	identity.add_child(_label("Procesos · materia · organización · biología", 12, MUTED))
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(spacer)
+
+	var connection_panel := _panel()
+	connection_panel.custom_minimum_size = Vector2(224, 0)
+	header.add_child(connection_panel)
+	var connection_row := HBoxContainer.new()
+	connection_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	connection_row.add_theme_constant_override("separation", 8)
+	connection_panel.add_child(_with_margin(connection_row, 9))
+	status_dot = ColorRect.new()
+	status_dot.color = YELLOW
+	status_dot.custom_minimum_size = Vector2(8, 8)
+	connection_row.add_child(status_dot)
+	status_label = _label("Conectando a Supabase", 10, MUTED)
+	connection_row.add_child(status_label)
+	header.add_child(_button("↻ Actualizar", Callable(self, "_reload_catalogues"), false))
+
+	var metrics := HBoxContainer.new()
+	metrics.add_theme_constant_override("separation", 8)
+	page.add_child(metrics)
+	var metrics_data := [
+		{"key": "procesos", "name": "PROCESOS", "tint": ACCENT},
+		{"key": "oris", "name": "ORIS", "tint": TEAL},
+		{"key": "iums", "name": "IUMS", "tint": LAVENDER},
+		{"key": "particulas", "name": "PARTÍCULAS", "tint": YELLOW},
+		{"key": "materia", "name": "MATERIA", "tint": ORANGE},
+		{"key": "organismos", "name": "ORGANISMOS", "tint": GREEN}
+	]
+	for metric in metrics_data:
+		var card := _panel()
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		metrics.add_child(card)
+		var content := VBoxContainer.new()
+		content.add_theme_constant_override("separation", 1)
+		card.add_child(_with_margin(content, 9))
+		var value_label := _label("—", 19, metric["tint"])
+		content.add_child(value_label)
+		content.add_child(_label(metric["name"], 9, MUTED))
+		count_labels[metric["key"]] = value_label
+
+	mode_tabs = HBoxContainer.new()
+	mode_tabs.add_theme_constant_override("separation", 6)
+	page.add_child(mode_tabs)
+	subnav = HBoxContainer.new()
+	subnav.add_theme_constant_override("separation", 6)
+	page.add_child(subnav)
+
+	var body := HBoxContainer.new()
+	body.add_theme_constant_override("separation", 10)
+	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	page.add_child(body)
+
+	var left_panel := _panel()
+	left_panel.custom_minimum_size = Vector2(250, 0)
+	body.add_child(left_panel)
+	var left := VBoxContainer.new()
+	left.add_theme_constant_override("separation", 8)
+	left_panel.add_child(_with_margin(left, 11))
+	left.add_child(_label("CATÁLOGO CANÓNICO", 10, MUTED))
+	search_input = LineEdit.new()
+	search_input.placeholder_text = "Buscar nombre, regla o fórmula…"
+	search_input.clear_button_enabled = true
+	search_input.add_theme_color_override("font_color", TEXT_COLOR)
+	search_input.add_theme_color_override("font_placeholder_color", Color("#6c7086"))
+	search_input.add_theme_stylebox_override("normal", _field_style())
+	search_input.add_theme_stylebox_override("focus", _field_style(true))
+	search_input.text_changed.connect(_on_search_changed)
+	left.add_child(search_input)
+
+	var list_scroll := ScrollContainer.new()
+	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	list_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	left.add_child(list_scroll)
+	catalog_list = VBoxContainer.new()
+	catalog_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	catalog_list.add_theme_constant_override("separation", 5)
+	list_scroll.add_child(catalog_list)
+
+	selection_button = _button("Incluir en selección", Callable(self, "_toggle_selection"), false)
+	selection_button.visible = false
+	left.add_child(selection_button)
+	left.add_child(_label("Fuente: catálogos públicos de Supabase", 9, Color("#6c7086")))
+
+	var center_panel := _panel()
+	center_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	body.add_child(center_panel)
+	var center := VBoxContainer.new()
+	center.add_theme_constant_override("separation", 8)
+	center_panel.add_child(_with_margin(center, 11))
+
+	var center_header := HBoxContainer.new()
+	center.add_child(center_header)
+	var graph_titles := VBoxContainer.new()
+	graph_titles.add_theme_constant_override("separation", 2)
+	center_header.add_child(graph_titles)
+	graph_titles.add_child(_label("GRAFO DE SISTEMA", 10, MUTED))
+	graph_title = _label("Selecciona una entidad", 17, TEXT_COLOR)
+	graph_titles.add_child(graph_title)
+	var head_spacer := Control.new()
+	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	center_header.add_child(head_spacer)
+	center_header.add_child(_label("VISTA ESTRUCTURAL", 9, ACCENT))
+
+	graph = FlowCanvas.new()
+	graph.custom_minimum_size = Vector2(420, 320)
+	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	center.add_child(graph)
+
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	center.add_child(actions)
+	var note := _label("Relaciones visuales tomadas del canon; no inventan resultados físicos.", 9, MUTED)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	actions.add_child(note)
+	simulate_button = _button("Resolver en Supabase", Callable(self, "_run_simulation"), true)
+	simulate_button.visible = false
+	actions.add_child(simulate_button)
+
+	result_panel = _panel()
+	result_panel.visible = false
+	result_panel.custom_minimum_size.y = 112
+	center.add_child(result_panel)
+	var result_content := VBoxContainer.new()
+	result_content.add_theme_constant_override("separation", 4)
+	result_panel.add_child(_with_margin(result_content, 9))
+	result_content.add_child(_label("RESPUESTA DEL MOTOR", 9, TEAL))
+	result_label = _label("", 11, TEXT_COLOR)
+	result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	result_label.custom_minimum_size.y = 60
+	result_content.add_child(result_label)
+
+	var right_panel := _panel()
+	right_panel.custom_minimum_size = Vector2(288, 0)
+	body.add_child(right_panel)
+	var right := VBoxContainer.new()
+	right.add_theme_constant_override("separation", 7)
+	right_panel.add_child(_with_margin(right, 11))
+	right.add_child(_label("INSPECTOR", 10, MUTED))
+	inspector_title = _label("Trazabilidad canónica", 13, ACCENT)
+	right.add_child(inspector_title)
+	var inspector_scroll := ScrollContainer.new()
+	inspector_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inspector_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	right.add_child(inspector_scroll)
+	inspector_content = VBoxContainer.new()
+	inspector_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inspector_content.add_theme_constant_override("separation", 10)
+	inspector_scroll.add_child(inspector_content)
+
+	var footer := HBoxContainer.new()
+	page.add_child(footer)
+	footer.add_child(_label("LECTURA · RPC DE CÁLCULO · SIN ESCRITURAS AL CANON", 9, Color("#6c7086")))
+	var footer_spacer := Control.new()
+	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(footer_spacer)
+	footer.add_child(_label("TASI → ELEMENTOS → COMPUESTOS → MATERIALES → OBJETOS", 9, Color("#6c7086")))
+
+
+func _load_catalogues() -> void:
+	_get_catalog("procesos", "/rest/v1/procesos?select=id,nombre,tipo,descripcion,entrada,transformacion,salida,conservacion,regla_clave,estado_fundamento,naturaleza_canonica,revision_requerida&order=nombre.asc&limit=500")
+	_get_catalog("oris", "/rest/v1/oris?select=id,orden,nombre,familia,formula,dominio,descripcion&order=orden.asc&limit=100")
+	_get_catalog("iums", "/rest/v1/iums?select=id,orden,nombre,detalle,extra&order=orden.asc&limit=100")
+	_get_catalog("particulas", "/rest/v1/particulas?select=id,orden,nombre,formula,categoria,ejes_fundamentales,capa_canonica,funcion_canonica,efecto_canonico,peso_masa,polaridad_carga,vector_neto&order=orden.asc&limit=100")
+	_get_catalog("elementos", "/rest/v1/elementos?select=id,nombre,simbolo,numero_atomico,masa_base,carga_q,estabilidad,rigidez,flexibilidad,dureza,conductividad,transparencia,regimen_estructural,estado_configuracion,perfil_fisico&order=numero_atomico.asc&limit=250")
+	_get_catalog("compuestos", "/rest/v1/compuestos?select=id,nombre,simbolo,formula_canonica,masa,carga,estabilidad,rigidez,flexibilidad,dureza,conductividad,transparencia,densidad_real,volumen_real,propiedades_emergentes&order=nombre.asc&limit=250")
+	_get_catalog("materiales", "/rest/v1/materiales?select=id,nombre,descripcion,tipo_material,categoria,estado_fisico,material_padre_id,propiedades_calculadas,estado_calculo&order=orden.asc&limit=250")
+	_get_catalog("estructuras", "/rest/v1/estructuras?select=id,nombre,tipo,descripcion,escala,explicacion,estado_calculo,propiedades_calculadas&order=nombre.asc&limit=300")
+	_get_catalog("objetos", "/rest/v1/items?select=id,nombre,descripcion,estado_fisico,geometria_fisica,propiedades_fisicas,material_id,tipo_objeto_id&order=nombre.asc&limit=250")
+	_get_catalog("organismos", "/rest/v1/organismos?select=id,nombre,descripcion,tipo_organismo,nivel_conciencia,propiedades_calculadas,estado_calculo,material_id,organismo_base_id,clado_id&order=orden.asc&limit=250")
+
+	_get_relation("oris_demanda", "/rest/v1/v_oris_demanda_eterium_v2?select=oris_id,nombre,dominio,formula,tareas,n_iums,n_uniones,unidades_organizacion,demanda_eterium_organizacion,unidad_eterium,formula_demanda,modelo&order=orden.asc&limit=100")
+	_get_relation("ium_config", "/rest/v1/iums_configuraciones_funcionales?select=ium_id,patron_organizacion,topologia_acoplamiento,regimen_garin,requiere_coherencia_eterium,descripcion,modo_acoplamiento_garin,dependencia_eterium,etapa_eterium&limit=100")
+	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=ium_id,cantidad,particulas(nombre,orden)&limit=300")
+	_get_relation("element_particles", "/rest/v1/elemento_particulas?select=elemento_id,capa,cantidad,particulas(nombre,orden)&limit=1000")
+	_get_relation("compound_elements", "/rest/v1/compuesto_elementos?select=compuesto_id,cantidad,proporcion_molar,rol,orden_estructura,elementos(nombre,simbolo)&limit=1000")
+	_get_relation("material_components", "/rest/v1/v_frontend_worldbuilder_material_componentes?select=material_id,material_nombre,componente_tipo,componente_nombre,cantidad,proporcion_min,proporcion_max,unidad,rol,orden&limit=1000")
+	_get_relation("structure_composition", "/rest/v1/v_estructura_composicion?select=estructura_id,compuesto,compuesto_id,cantidad,proporcion,rol,orden&limit=1000")
+	_get_relation("object_materials", "/rest/v1/item_materiales?select=item_id,cantidad,proporcion,rol,materiales(nombre)&limit=1000")
+	_get_relation("object_structures", "/rest/v1/item_estructuras_fisicas?select=item_id,principal,estructuras(nombre,tipo,escala)&limit=1000")
+	_get_relation("organism_systems", "/rest/v1/organismo_sistemas?select=organismo_id,proporcion,sistemas(nombre)&limit=500")
+	_get_relation("organism_organs", "/rest/v1/organismo_organos?select=organismo_id,rol,cantidad,organos(nombre)&limit=1000")
+
+
+func _get_catalog(key: String, path: String) -> void:
+	_request("catalog:" + key, path, HTTPClient.METHOD_GET, null)
+
+
+func _get_relation(key: String, path: String) -> void:
+	_request("relation:" + key, path, HTTPClient.METHOD_GET, null)
+
+
+func _request(tag: String, path: String, method: int, payload: Variant) -> void:
+	var req := HTTPRequest.new()
+	req.timeout = 20.0
+	req.use_threads = true
+	add_child(req)
+	req.request_completed.connect(_on_request_completed.bind(tag, req), CONNECT_ONE_SHOT)
+	var headers := PackedStringArray([
+		"apikey: " + SupabaseConfig.PUBLISHABLE_KEY,
+		"Accept: application/json"
+	])
+	var body := ""
+	if payload != null:
+		headers.append("Content-Type: application/json")
+		body = JSON.stringify(payload)
+	var code := req.request(SupabaseConfig.PROJECT_URL + path, headers, method, body)
+	if code != OK:
+		req.queue_free()
+		_handle_response(tag, false, {}, "No se pudo iniciar la petición: " + error_string(code))
+
+
+func _on_request_completed(result: int, response_code: int, _headers: PackedStringArray, body: PackedByteArray, tag: String, req: HTTPRequest) -> void:
+	req.queue_free()
+	var data: Variant = JSON.parse_string(body.get_string_from_utf8())
+	if result != HTTPRequest.RESULT_SUCCESS:
+		_handle_response(tag, false, {}, "Error de red: " + str(result))
+		return
+	if response_code < 200 or response_code >= 300:
+		var message := "HTTP " + str(response_code)
+		if data is Dictionary:
+			message = str(data.get("message", data.get("details", data.get("hint", message))))
+		_handle_response(tag, false, data, message)
+		return
+	_handle_response(tag, true, data, "")
+
+
+func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> void:
+	if tag.begins_with("catalog:"):
+		var key := tag.trim_prefix("catalog:")
+		finished[key] = true
+		if ok and data is Array:
+			catalogs[key] = data
+			errors.erase(key)
+			success_count += 1
+		else:
+			catalogs[key] = []
+			errors[key] = message if not message.is_empty() else "Respuesta no reconocida."
+			push_warning("Catálogo " + key + ": " + str(errors[key]))
+		_update_status()
+		_refresh_metrics()
+		_render_catalog()
+		_render_graph()
+		_render_inspector()
+		return
+
+	if tag.begins_with("relation:"):
+		var key := tag.trim_prefix("relation:")
+		if ok and data is Array:
+			relations[key] = data
+			errors.erase("rel:" + key)
+		else:
+			relations[key] = []
+			errors["rel:" + key] = message
+			push_warning("Relación " + key + ": " + message)
+		_render_graph()
+		_render_inspector()
+		return
+
+	if tag.begins_with("rpc:"):
+		result_panel.visible = true
+		if ok:
+			last_rpc = {"tag": tag, "data": data}
+			result_label.text = JSON.stringify(data, "  ")
+			_graph_rpc_result(data, tag)
+			inspector_title.text = "Respuesta del motor"
+			_render_inspector()
+			_set_status("Cálculo devuelto por Supabase", GREEN)
+		else:
+			result_label.text = "El motor rechazó la petición.\n" + message
+			_set_status("Error al calcular", RED)
+			push_warning("RPC " + tag + ": " + message)
+
+
+func _update_status() -> void:
+	if success_count > 0 and errors.is_empty():
+		_set_status("Supabase conectado · catálogos leídos", GREEN)
+	elif success_count > 0:
+		_set_status("Conexión parcial · revisar avisos", ORANGE)
+	elif not errors.is_empty():
+		_set_status("No se pudieron leer los catálogos", RED)
+	else:
+		_set_status("Conectando a Supabase", YELLOW)
+
+
+func _set_status(message: String, tint: Color) -> void:
+	if is_instance_valid(status_label):
+		status_label.text = message
+		status_label.add_theme_color_override("font_color", tint)
+	if is_instance_valid(status_dot):
+		status_dot.color = tint
+
+
+func _reload_catalogues() -> void:
+	catalogs.clear()
+	relations.clear()
+	finished.clear()
+	errors.clear()
+	success_count = 0
+	selected.clear()
+	selected_ids.clear()
+	last_rpc.clear()
+	result_panel.visible = false
+	_set_status("Actualizando catálogos…", YELLOW)
+	_load_catalogues()
+
+
+func _set_mode(mode: String) -> void:
+	current_mode = mode
+	selected.clear()
+	selected_ids.clear()
+	last_rpc.clear()
+	result_panel.visible = false
+	match mode:
+		"Procesos":
+			current_key = "procesos"
+		"Oris / IUM":
+			current_key = "oris"
+		"Materia":
+			current_key = "elementos"
+		"Objetos":
+			current_key = "objetos"
+		"Organismos":
+			current_key = "organismos"
+	_refresh_mode_tabs()
+	_refresh_subnav()
+	_render_catalog()
+	_render_graph()
+	_render_inspector()
+	_refresh_metrics()
+	_refresh_actions()
+
+
+func _choose_catalog(key: String) -> void:
+	current_key = key
+	selected.clear()
+	selected_ids.clear()
+	last_rpc.clear()
+	result_panel.visible = false
+	_refresh_subnav()
+	_render_catalog()
+	_render_graph()
+	_render_inspector()
+	_refresh_actions()
+
+
+func _refresh_mode_tabs() -> void:
+	_clear(mode_tabs)
+	for mode in ["Procesos", "Oris / IUM", "Materia", "Objetos", "Organismos"]:
+		mode_tabs.add_child(_button(mode, Callable(self, "_set_mode").bind(mode), current_mode == mode))
+
+
+func _refresh_subnav() -> void:
+	_clear(subnav)
+	var options: Array = []
+	match current_mode:
+		"Oris / IUM":
+			options = [
+				{"key": "oris", "label": "Oris"},
+				{"key": "iums", "label": "IUMs"},
+				{"key": "particulas", "label": "Partículas TASI"}
+			]
+		"Materia":
+			options = [
+				{"key": "elementos", "label": "Elementos"},
+				{"key": "compuestos", "label": "Compuestos"},
+				{"key": "materiales", "label": "Materiales"},
+				{"key": "estructuras", "label": "Estructuras"}
+			]
+	if options.is_empty():
+		subnav.visible = false
+		return
+	subnav.visible = true
+	for option in options:
+		var key: String = option["key"]
+		subnav.add_child(_button(option["label"], Callable(self, "_choose_catalog").bind(key), current_key == key))
+
+
+func _render_catalog() -> void:
+	if not is_instance_valid(catalog_list):
+		return
+	_clear(catalog_list)
+	var entries: Array = catalogs.get(current_key, [])
+	var query := search_input.text.strip_edges().to_lower() if is_instance_valid(search_input) else ""
+	var count := 0
+	for item in entries:
+		if not item is Dictionary:
+			continue
+		var name := str(item.get("nombre", item.get("name", "Sin nombre")))
+		var searchable := (name + " " + str(item.get("descripcion", "")) + " " + str(item.get("regla_clave", "")) + " " + str(item.get("formula", ""))).to_lower()
+		if not query.is_empty() and not searchable.contains(query):
+			continue
+		count += 1
+		var ident := str(item.get("id", ""))
+		var active := not selected.is_empty() and str(selected.get("id", "")) == ident
+		var included := selected_ids.has(ident)
+		var row := _button(("✓  " if included else "") + name + "\n" + _item_subtitle(item), Callable(self, "_on_item_pressed").bind(item), active)
+		row.custom_minimum_size = Vector2(0, 56)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		catalog_list.add_child(row)
+	if count == 0:
+		var message := "Consultando Supabase…" if not finished.get(current_key, false) else "No hay resultados para este filtro."
+		if errors.has(current_key):
+			message = "Catálogo inaccesible.\n" + str(errors[current_key])
+		var empty := _label(message, 11, MUTED)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		catalog_list.add_child(empty)
+	_refresh_actions()
+
+
+func _item_subtitle(item: Dictionary) -> String:
+	match current_key:
+		"procesos":
+			return str(item.get("tipo", "proceso")) + " · " + str(item.get("regla_clave", "sin regla"))
+		"oris":
+			return str(item.get("dominio", item.get("familia", "Oris")))
+		"iums":
+			return str(item.get("detalle", item.get("extra", "IUM funcional")))
+		"particulas":
+			return str(item.get("capa_canonica", item.get("categoria", item.get("funcion_canonica", "TASI"))))
+		"elementos":
+			return str(item.get("simbolo", "—")) + " · Z " + str(item.get("numero_atomico", "—"))
+		"compuestos":
+			return str(item.get("formula_canonica", item.get("simbolo", "Compuesto")))
+		"materiales":
+			return str(item.get("tipo_material", item.get("categoria", item.get("estado_fisico", "Material"))))
+		"estructuras":
+			return str(item.get("tipo", "Estructura")) + " · " + str(item.get("escala", "escala no indicada"))
+		"objetos":
+			return str(item.get("estado_fisico", "Objeto")) + " · entidad física"
+		"organismos":
+			return str(item.get("tipo_organismo", "Organismo")) + " · " + str(item.get("nivel_conciencia", ""))
+	return ""
+
+
+func _on_item_pressed(item: Dictionary) -> void:
+	selected = item
+	last_rpc.clear()
+	result_panel.visible = false
+	_render_catalog()
+	_render_graph()
+	_render_inspector()
+	_refresh_actions()
+
+
+func _on_search_changed(_value: String) -> void:
+	_render_catalog()
+
+
+func _toggle_selection() -> void:
+	if selected.is_empty():
+		return
+	var ident := str(selected.get("id", ""))
+	if ident.is_empty():
+		_show_result("Este registro no tiene un identificador compatible con el motor.")
+		return
+	if selected_ids.has(ident):
+		selected_ids.erase(ident)
+	else:
+		selected_ids.append(ident)
+	_render_catalog()
+	_refresh_actions()
+	_set_status("%d registro(s) seleccionados" % selected_ids.size(), ACCENT)
+
+
+func _refresh_actions() -> void:
+	if not is_instance_valid(selection_button) or not is_instance_valid(simulate_button):
+		return
+	var supports_selection := current_key == "elementos" or current_key == "compuestos"
+	selection_button.visible = supports_selection
+	if selected.is_empty():
+		selection_button.text = "Selecciona un registro"
+		selection_button.disabled = true
+	else:
+		var ident := str(selected.get("id", ""))
+		selection_button.disabled = ident.is_empty()
+		selection_button.text = ("Quitar de selección" if selected_ids.has(ident) else "Incluir en selección") + " · " + str(selected_ids.size())
+	simulate_button.visible = supports_selection
+	simulate_button.disabled = selected_ids.size() < 2
+
+
+func _run_simulation() -> void:
+	if selected_ids.size() < 2:
+		_show_result("Selecciona al menos dos registros.")
+		return
+	if current_key == "elementos":
+		_set_status("Calculando compuesto en Supabase…", YELLOW)
+		_request("rpc:compuesto", "/rest/v1/rpc/simular_compuesto_desde_elementos", HTTPClient.METHOD_POST, {"p_elemento_ids": selected_ids})
+	elif current_key == "compuestos":
+		_set_status("Calculando material en Supabase…", YELLOW)
+		_request("rpc:material", "/rest/v1/rpc/simular_material_desde_compuestos", HTTPClient.METHOD_POST, {"p_compuesto_ids": selected_ids})
+
+
+func _show_result(message: String) -> void:
+	result_panel.visible = true
+	result_label.text = message
+
+
+func _graph_rpc_result(data: Variant, tag: String) -> void:
+	var state := "Respuesta recibida"
+	var detail := JSON.stringify(data, " ")
+	if data is Dictionary:
+		state = str(data.get("estado", data.get("status", state)))
+	var title := "Formar compuesto" if tag == "rpc:compuesto" else "Formar material"
+	graph.set_graph([
+		{"role": "ENTRADA", "title": str(selected_ids.size()) + " entidades", "detail": "Selección del catálogo canónico", "color": TEAL},
+		{"role": "RPC EXISTENTE", "title": title, "detail": "Resolución delegada a PostgreSQL", "color": ACCENT},
+		{"role": "RESULTADO", "title": state, "detail": detail.substr(0, 100), "color": GREEN if state.to_lower().contains("calcul") else YELLOW}
+	], "EJECUCIÓN REAL · RESPUESTA DE SUPABASE")
+
+
+func _render_graph() -> void:
+	if not is_instance_valid(graph):
+		return
+	if not last_rpc.is_empty():
+		_graph_rpc_result(last_rpc.get("data", {}), str(last_rpc.get("tag", "")))
+		return
+	if selected.is_empty():
+		graph_title.text = "Selecciona una entidad"
+		graph.set_graph([
+			{"role": "CAPA", "title": "Procesos", "detail": "Entradas y transformaciones", "color": ACCENT},
+			{"role": "ACOPLAMIENTO", "title": "Oris / IUMs", "detail": "Organización funcional", "color": LAVENDER},
+			{"role": "MATERIA", "title": "Elementos y compuestos", "detail": "Propiedades y estructura", "color": ORANGE},
+			{"role": "SISTEMA", "title": "Objetos / organismos", "detail": "Arquitectura material y biológica", "color": GREEN}
+		], "VISTA GENERAL DEL LABORATORIO")
+		return
+
+	graph_title.text = str(selected.get("nombre", "Entidad"))
+	var nodes: Array = []
+	match current_key:
+		"procesos":
+			nodes = [
+				{"role": "ENTRADA", "title": "Entrada", "detail": str(selected.get("entrada", "No descrita en el registro")), "color": TEAL},
+				{"role": "TRANSFORMACIÓN", "title": str(selected.get("nombre", "Proceso")), "detail": str(selected.get("transformacion", selected.get("descripcion", "Sin descripción"))), "color": ACCENT},
+				{"role": "SALIDA", "title": "Salida", "detail": str(selected.get("salida", "No descrita en el registro")), "color": GREEN}
+			]
+		"oris":
+			var demand := _related_row("oris_demanda", "oris_id", str(selected.get("id", "")))
+			var demand_text := "Demanda estructural no disponible"
+			if not demand.is_empty():
+				demand_text = str(demand.get("demanda_eterium_organizacion", "—")) + " " + str(demand.get("unidad_eterium", ""))
+			nodes = [
+				{"role": "SELECCIÓN", "title": "Eterium", "detail": "Selecciona y dirige el IUM", "color": LAVENDER},
+				{"role": "ORIS", "title": str(selected.get("nombre", "Oris")), "detail": str(selected.get("dominio", "Dominio funcional")), "color": ACCENT},
+				{"role": "IUMS", "title": "Configuración", "detail": str(selected.get("formula", "Fórmula no indicada")), "color": TEAL},
+				{"role": "DEMANDA", "title": "Organización", "detail": demand_text, "color": ORANGE},
+				{"role": "EJECUCIÓN", "title": "Garin", "detail": "Infraestructura espacial de ejecución", "color": LAVENDER}
+			]
+		"iums":
+			var part_text := _related_text("ium_particles", "ium_id", "nombre", "particulas", str(selected.get("id", "")))
+			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
+			nodes = [
+				{"role": "PARTÍCULAS", "title": str(selected.get("nombre", "IUM")), "detail": part_text if not part_text.is_empty() else str(selected.get("detalle", "Composición no disponible")), "color": LAVENDER},
+				{"role": "ORGANIZACIÓN", "title": str(conf.get("patron_organizacion", "Patrón funcional")), "detail": str(conf.get("topologia_acoplamiento", "Topología no indicada")), "color": ACCENT},
+				{"role": "GARIN", "title": str(conf.get("regimen_garin", "Régimen espacial")), "detail": "Infraestructura espacial configurada", "color": ORANGE},
+				{"role": "COHERENCIA", "title": "Eterium", "detail": str(conf.get("dependencia_eterium", "Dependencia según el canon")), "color": TEAL}
+			]
+		"particulas":
+			nodes = [
+				{"role": "IDENTIDAD TASI", "title": str(selected.get("nombre", "Partícula")), "detail": str(selected.get("formula", "Sin fórmula indicada")), "color": YELLOW},
+				{"role": "FUNCIÓN", "title": str(selected.get("funcion_canonica", "Función canónica")), "detail": str(selected.get("capa_canonica", "Capa no indicada")), "color": ACCENT},
+				{"role": "EFECTO", "title": "Efecto registrado", "detail": str(selected.get("efecto_canonico", "No indicado")), "color": TEAL}
+			]
+		"elementos":
+			var parts := _related_text("element_particles", "elemento_id", "nombre", "particulas", str(selected.get("id", "")))
+			nodes = [
+				{"role": "PARTÍCULAS", "title": str(selected.get("nombre", "Elemento")), "detail": parts if not parts.is_empty() else "Relación no disponible", "color": YELLOW},
+				{"role": "CONFIGURACIÓN", "title": str(selected.get("regimen_estructural", "Régimen")), "detail": str(selected.get("estado_configuracion", "Estado no indicado")), "color": ACCENT},
+				{"role": "PROPIEDADES", "title": "Perfil físico", "detail": _property_summary(selected), "color": TEAL}
+			]
+		"compuestos":
+			var parts := _related_text("compound_elements", "compuesto_id", "nombre", "elementos", str(selected.get("id", "")))
+			nodes = [
+				{"role": "ELEMENTOS", "title": "Composición", "detail": parts if not parts.is_empty() else str(selected.get("formula_canonica", "Composición no disponible")), "color": YELLOW},
+				{"role": "COMPUESTO", "title": str(selected.get("nombre", "Compuesto")), "detail": str(selected.get("formula_canonica", "Topología composicional")), "color": ACCENT},
+				{"role": "PROPIEDADES", "title": "Estado registrado", "detail": _property_summary(selected), "color": TEAL}
+			]
+		"materiales":
+			var parts := _related_text("material_components", "material_id", "componente_nombre", "", str(selected.get("id", "")))
+			nodes = [
+				{"role": "COMPONENTES", "title": "Composición", "detail": parts if not parts.is_empty() else "Componentes no disponibles", "color": YELLOW},
+				{"role": "MATERIAL", "title": str(selected.get("nombre", "Material")), "detail": str(selected.get("tipo_material", selected.get("categoria", "Categoría no indicada"))), "color": ORANGE},
+				{"role": "ESTADO", "title": str(selected.get("estado_calculo", "Sin estado")), "detail": _property_summary(selected), "color": TEAL}
+			]
+		"estructuras":
+			var parts := _related_text("structure_composition", "estructura_id", "compuesto", "", str(selected.get("id", "")))
+			nodes = [
+				{"role": "COMPOSICIÓN", "title": "Componentes", "detail": parts if not parts.is_empty() else "Composición no disponible", "color": YELLOW},
+				{"role": "ESTRUCTURA", "title": str(selected.get("nombre", "Estructura")), "detail": str(selected.get("tipo", "Tipo no indicado")) + " · " + str(selected.get("escala", "escala no indicada")), "color": ACCENT},
+				{"role": "DERIVACIÓN", "title": str(selected.get("estado_calculo", "Estado")), "detail": _property_summary(selected), "color": TEAL}
+			]
+		"objetos":
+			var materials_text := _related_text("object_materials", "item_id", "nombre", "materiales", str(selected.get("id", "")))
+			var structures_text := _related_text("object_structures", "item_id", "nombre", "estructuras", str(selected.get("id", "")))
+			nodes = [
+				{"role": "MATERIAL", "title": "Material", "detail": materials_text if not materials_text.is_empty() else "Material no disponible", "color": ORANGE},
+				{"role": "OBJETO", "title": str(selected.get("nombre", "Objeto")), "detail": structures_text if not structures_text.is_empty() else str(selected.get("geometria_fisica", "Geometría no disponible")), "color": ACCENT},
+				{"role": "PROPIEDADES", "title": str(selected.get("estado_fisico", "Estado físico")), "detail": _property_summary(selected), "color": TEAL}
+			]
+		"organismos":
+			var systems_text := _related_text("organism_systems", "organismo_id", "nombre", "sistemas", str(selected.get("id", "")))
+			var organs_text := _related_text("organism_organs", "organismo_id", "nombre", "organos", str(selected.get("id", "")))
+			nodes = [
+				{"role": "SISTEMAS", "title": "Sistemas", "detail": systems_text if not systems_text.is_empty() else "Sistemas no disponibles", "color": GREEN},
+				{"role": "ORGANISMO", "title": str(selected.get("nombre", "Organismo")), "detail": str(selected.get("tipo_organismo", "Tipo biológico")), "color": ACCENT},
+				{"role": "ÓRGANOS", "title": "Órganos", "detail": organs_text if not organs_text.is_empty() else "Órganos no disponibles", "color": TEAL}
+			]
+	graph.set_graph(nodes, "CAPA CANÓNICA · " + current_key.to_upper())
+
+
+func _render_inspector() -> void:
+	if not is_instance_valid(inspector_content):
+		return
+	_clear(inspector_content)
+	if selected.is_empty():
+		inspector_title.text = "Trazabilidad canónica"
+		_add_detail("Cómo empezar", "Elige una entidad a la izquierda. El grafo muestra sus relaciones disponibles.")
+		_add_detail("Motor de materia", "En Elementos o Compuestos selecciona dos o más registros y usa Resolver en Supabase.")
+		_add_detail("Criterio de rigor", "Los valores calculados proceden de la respuesta RPC; las vistas gráficas son descriptivas.")
+		return
+
+	inspector_title.text = current_key.capitalize()
+	_add_detail("Identidad", str(selected.get("nombre", "Sin nombre")), ACCENT)
+	match current_key:
+		"procesos":
+			_add_detail("Tipo / naturaleza", str(selected.get("tipo", "—")) + " / " + str(selected.get("naturaleza_canonica", "—")))
+			_add_detail("Entrada", str(selected.get("entrada", "No registrada")))
+			_add_detail("Transformación", str(selected.get("transformacion", selected.get("descripcion", "No registrada"))))
+			_add_detail("Salida", str(selected.get("salida", "No registrada")), GREEN)
+			_add_detail("Conservación", str(selected.get("conservacion", "Sin balance descrito")))
+			_add_detail("Regla / fundamento", str(selected.get("regla_clave", "—")) + " / " + str(selected.get("estado_fundamento", "—")))
+			_add_detail("Revisión requerida", str(selected.get("revision_requerida", "No indicado")), YELLOW)
+		"oris":
+			_add_detail("Dominio", str(selected.get("dominio", "—")))
+			_add_detail("Familia", str(selected.get("familia", "—")))
+			_add_detail("Fórmula canónica", str(selected.get("formula", "No registrada")), TEAL)
+			_add_detail("Descripción", str(selected.get("descripcion", "Sin descripción")))
+			var demand := _related_row("oris_demanda", "oris_id", str(selected.get("id", "")))
+			if not demand.is_empty():
+				_add_detail("Demanda estructural de Eterium", _pretty(demand), LAVENDER)
+		"iums":
+			_add_detail("Composición declarada", str(selected.get("detalle", "—")))
+			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
+			if not conf.is_empty():
+				_add_detail("Configuración funcional", _pretty(conf), LAVENDER)
+			_add_detail("Partículas registradas", _related_text("ium_particles", "ium_id", "nombre", "particulas", str(selected.get("id", ""))))
+			_add_detail("Información adicional", str(selected.get("extra", "Sin información adicional")))
+		"particulas":
+			_add_detail("Fórmula / identidad", str(selected.get("formula", "—")))
+			_add_detail("Capa canónica", str(selected.get("capa_canonica", "—")))
+			_add_detail("Función canónica", str(selected.get("funcion_canonica", "—")), TEAL)
+			_add_detail("Efecto canónico", str(selected.get("efecto_canonico", "—")))
+			_add_detail("Vector / polaridad", str(selected.get("vector_neto", "—")) + " / " + str(selected.get("polaridad_carga", "—")))
+		"elementos":
+			_add_detail("Símbolo / número atómico", str(selected.get("simbolo", "—")) + " / " + str(selected.get("numero_atomico", "—")))
+			_add_detail("Masa base / carga Q", str(selected.get("masa_base", "—")) + " / " + str(selected.get("carga_q", "—")))
+			_add_detail("Régimen estructural", str(selected.get("regimen_estructural", "—")))
+			_add_detail("Partículas por capa", _related_text("element_particles", "elemento_id", "nombre", "particulas", str(selected.get("id", ""))))
+			_add_detail("Propiedades", _property_summary(selected), TEAL)
+		"compuestos":
+			_add_detail("Fórmula canónica", str(selected.get("formula_canonica", "—")), TEAL)
+			_add_detail("Elementos", _related_text("compound_elements", "compuesto_id", "nombre", "elementos", str(selected.get("id", ""))))
+			_add_detail("Propiedades derivadas", _property_summary(selected))
+			_add_detail("Propiedades emergentes", _pretty(selected.get("propiedades_emergentes", {})))
+		"materiales":
+			_add_detail("Tipo / estado", str(selected.get("tipo_material", "—")) + " / " + str(selected.get("estado_fisico", "—")))
+			_add_detail("Descripción", str(selected.get("descripcion", "—")))
+			_add_detail("Componentes", _related_text("material_components", "material_id", "componente_nombre", "", str(selected.get("id", ""))))
+			_add_detail("Estado del cálculo", str(selected.get("estado_calculo", "—")))
+			_add_detail("Propiedades calculadas", _pretty(selected.get("propiedades_calculadas", {})), TEAL)
+		"estructuras":
+			_add_detail("Tipo / escala", str(selected.get("tipo", "—")) + " / " + str(selected.get("escala", "—")))
+			_add_detail("Descripción", str(selected.get("descripcion", selected.get("explicacion", "—"))))
+			_add_detail("Composición", _related_text("structure_composition", "estructura_id", "compuesto", "", str(selected.get("id", ""))))
+			_add_detail("Estado de cálculo", str(selected.get("estado_calculo", "—")))
+			_add_detail("Propiedades calculadas", _pretty(selected.get("propiedades_calculadas", {})), TEAL)
+		"objetos":
+			_add_detail("Estado físico", str(selected.get("estado_fisico", "—")))
+			_add_detail("Descripción", str(selected.get("descripcion", "—")))
+			_add_detail("Materiales", _related_text("object_materials", "item_id", "nombre", "materiales", str(selected.get("id", ""))))
+			_add_detail("Estructuras", _related_text("object_structures", "item_id", "nombre", "estructuras", str(selected.get("id", ""))))
+			_add_detail("Geometría", _pretty(selected.get("geometria_fisica", {})))
+			_add_detail("Propiedades físicas", _pretty(selected.get("propiedades_fisicas", {})), TEAL)
+		"organismos":
+			_add_detail("Tipo / conciencia", str(selected.get("tipo_organismo", "—")) + " / " + str(selected.get("nivel_conciencia", "—")))
+			_add_detail("Descripción", str(selected.get("descripcion", "—")))
+			_add_detail("Sistemas", _related_text("organism_systems", "organismo_id", "nombre", "sistemas", str(selected.get("id", ""))))
+			_add_detail("Órganos", _related_text("organism_organs", "organismo_id", "nombre", "organos", str(selected.get("id", ""))))
+			_add_detail("Estado / propiedades biológicas", str(selected.get("estado_calculo", "—")) + "\n" + _pretty(selected.get("propiedades_calculadas", {})), GREEN)
+	if not errors.is_empty():
+		_add_detail("Avisos de acceso", str(errors.size()) + " catálogo(s) o relación(es) con error. Comprueba permisos del Data API.", YELLOW)
+
+
+func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> void:
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 3)
+	inspector_content.add_child(block)
+	block.add_child(_label(heading.to_upper(), 9, MUTED))
+	var label := _label(value if not value.is_empty() else "Sin dato registrado", 11, tint)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	block.add_child(label)
+
+
+func _related_rows(relation_key: String, foreign_key: String, ident: String) -> Array:
+	var matches: Array = []
+	for row in relations.get(relation_key, []):
+		if row is Dictionary and str(row.get(foreign_key, "")) == ident:
+			matches.append(row)
+	return matches
+
+
+func _related_row(relation_key: String, foreign_key: String, ident: String) -> Dictionary:
+	var matches := _related_rows(relation_key, foreign_key, ident)
+	return matches[0] if not matches.is_empty() else {}
+
+
+func _related_text(relation_key: String, foreign_key: String, field: String, nested_key: String, ident: String) -> String:
+	var values: Array[String] = []
+	for row in _related_rows(relation_key, foreign_key, ident):
+		var value: Variant = row.get(field, "")
+		if not nested_key.is_empty():
+			var nested: Variant = row.get(nested_key, {})
+			if nested is Dictionary:
+				value = nested.get(field, "")
+			elif nested is Array and not nested.is_empty() and nested[0] is Dictionary:
+				value = nested[0].get(field, "")
+		if str(value).is_empty():
+			continue
+		var amount := str(row.get("cantidad", ""))
+		var suffix := " × " + amount if not amount.is_empty() and amount != "1" else ""
+		var item_text := str(value) + suffix
+		if not values.has(item_text):
+			values.append(item_text)
+	return " · ".join(values)
+
+
+func _property_summary(item: Dictionary) -> String:
+	var props: Variant = item.get("propiedades_calculadas", item.get("propiedades_fisicas", item.get("perfil_fisico", {})))
+	if props is Dictionary and not props.is_empty():
+		var output: Array[String] = []
+		for key in ["estado", "modelo", "masa", "carga", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "densidad", "volumen"]:
+			if props.has(key):
+				output.append(key + ": " + str(props[key]))
+		return " · ".join(output) if not output.is_empty() else _pretty(props)
+	var output: Array[String] = []
+	for key in ["masa_base", "masa", "carga_q", "carga", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "densidad_real", "volumen_real"]:
+		if item.has(key) and item[key] != null:
+			output.append(key + ": " + str(item[key]))
+	return " · ".join(output) if not output.is_empty() else "No hay propiedades disponibles para mostrar."
+
+
+func _pretty(value: Variant) -> String:
+	if value == null:
+		return "Sin dato registrado"
+	if value is Dictionary or value is Array:
+		var encoded := JSON.stringify(value, "  ")
+		return encoded.substr(0, 697) + "…" if encoded.length() > 700 else encoded
+	var result := str(value)
+	return result if not result.is_empty() else "Sin dato registrado"
+
+
+func _refresh_metrics() -> void:
+	if not is_instance_valid(mode_tabs):
+		return
+	for key in ["procesos", "oris", "iums", "particulas", "organismos"]:
+		count_labels[key].text = _count_text(key)
+	var sum := 0
+	for key in ["elementos", "compuestos", "materiales", "estructuras"]:
+		sum += (catalogs.get(key, []) as Array).size()
+	count_labels["materia"].text = str(sum) if sum > 0 else "—"
+
+
+func _count_text(key: String) -> String:
+	if not finished.get(key, false):
+		return "—"
+	if errors.has(key):
+		return "!"
+	return str((catalogs.get(key, []) as Array).size())
+
+
+func _button(text_value: String, action: Callable, active: bool = false) -> Button:
+	var button := Button.new()
+	button.text = text_value
+	button.focus_mode = Control.FOCUS_ALL
+	button.add_theme_font_size_override("font_size", 11)
+	button.add_theme_color_override("font_color", TEXT_COLOR)
+	button.add_theme_color_override("font_hover_color", TEXT_COLOR)
+	button.add_theme_color_override("font_pressed_color", TEXT_COLOR)
+	button.add_theme_color_override("font_disabled_color", Color("#6c7086"))
+	button.add_theme_stylebox_override("normal", _button_style(active))
+	var hover := _button_style(active)
+	hover.bg_color = Color("#34344f") if active else Color("#29293d")
+	button.add_theme_stylebox_override("hover", hover)
+	var pressed := _button_style(true)
+	pressed.bg_color = Color("#45456b")
+	button.add_theme_stylebox_override("pressed", pressed)
+	button.add_theme_stylebox_override("focus", _button_style(true))
+	var disabled := _button_style(false)
+	disabled.bg_color = Color("#191923")
+	button.add_theme_stylebox_override("disabled", disabled)
+	button.pressed.connect(action)
+	return button
+
+
+func _button_style(active: bool) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#30304b") if active else Color("#1b1b2b")
+	style.border_color = Color("#6c6c9c") if active else BORDER
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 10
+	style.content_margin_right = 10
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
+	return style
+
+
+func _panel() -> PanelContainer:
+	var panel := PanelContainer.new()
+	var style := StyleBoxFlat.new()
+	style.bg_color = SURFACE
+	style.border_color = BORDER
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(12)
+	style.content_margin_left = 0
+	style.content_margin_right = 0
+	style.content_margin_top = 0
+	style.content_margin_bottom = 0
+	panel.add_theme_stylebox_override("panel", style)
+	return panel
+
+
+func _field_style(focused: bool = false) -> StyleBoxFlat:
+	var style := StyleBoxFlat.new()
+	style.bg_color = SURFACE_ALT
+	style.border_color = ACCENT if focused else BORDER
+	style.set_border_width_all(1)
+	style.set_corner_radius_all(8)
+	style.content_margin_left = 8
+	style.content_margin_right = 8
+	style.content_margin_top = 6
+	style.content_margin_bottom = 6
+	return style
+
+
+func _label(value: String, font_size: int = 12, tint: Color = TEXT_COLOR) -> Label:
+	var label := Label.new()
+	label.text = value
+	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_color_override("font_color", tint)
+	return label
+
+
+func _with_margin(control: Control, amount: int) -> MarginContainer:
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", amount)
+	margin.add_theme_constant_override("margin_right", amount)
+	margin.add_theme_constant_override("margin_top", amount)
+	margin.add_theme_constant_override("margin_bottom", amount)
+	margin.add_child(control)
+	return margin
+
+
+func _clear(container: Node) -> void:
+	for child in container.get_children():
+		container.remove_child(child)
+		child.queue_free()
