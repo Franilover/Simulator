@@ -196,29 +196,6 @@ func _build_ui() -> void:
 	connection_row.add_child(status_label)
 	header.add_child(_button("↻ Actualizar", Callable(self, "_reload_catalogues"), false))
 
-	var metrics := HBoxContainer.new()
-	metrics.add_theme_constant_override("separation", 8)
-	page.add_child(metrics)
-	var metrics_data := [
-		{"key": "procesos", "name": "PROCESOS", "tint": ACCENT},
-		{"key": "oris", "name": "ORIS", "tint": TEAL},
-		{"key": "iums", "name": "IUMS", "tint": LAVENDER},
-		{"key": "particulas", "name": "PARTÍCULAS", "tint": YELLOW},
-		{"key": "materia", "name": "MATERIA", "tint": ORANGE},
-		{"key": "organismos", "name": "ORGANISMOS", "tint": GREEN}
-	]
-	for metric in metrics_data:
-		var card := _panel()
-		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		metrics.add_child(card)
-		var content := VBoxContainer.new()
-		content.add_theme_constant_override("separation", 1)
-		card.add_child(_with_margin(content, 9))
-		var value_label := _label("—", 19, metric["tint"])
-		content.add_child(value_label)
-		content.add_child(_label(metric["name"], 9, MUTED))
-		count_labels[metric["key"]] = value_label
-
 	mode_tabs = HBoxContainer.new()
 	mode_tabs.add_theme_constant_override("separation", 6)
 	page.add_child(mode_tabs)
