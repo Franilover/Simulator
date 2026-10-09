@@ -957,7 +957,7 @@ func _graph_rpc_result(data: Variant, tag: String) -> void:
 			config_state = str(organization.get("configuracion_estado", ""))
 			config_label = str(organization.get("configuracion_version", "versión no indicada")) + " · " + config_state
 		var result_tint: Color = GREEN if state == "calculado" else YELLOW
-		if not config_state.is_empty() and config_state not in ["canonico", "canonico_formal", "validada", "vigente"]:
+		if not config_state.is_empty() and not ["canonico", "canonico_formal", "validada", "vigente"].has(config_state):
 			result_tint = YELLOW
 		nodes = [
 			{"role": "ORIS", "title": str(data.get("oris", "Oris")), "detail": config_label, "color": YELLOW if config_state == "propuesta" else LAVENDER},
