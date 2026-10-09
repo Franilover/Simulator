@@ -20,6 +20,7 @@ class FlowCanvas extends Control:
 	var nodes_data: Array = []
 	var caption := ""
 	const INK := Color("#cdd6f4")
+	const ACCENT := Color("#b4befe")
 	const SUBTLE := Color("#6c7086")
 	const LINE := Color("#45475a")
 
@@ -133,6 +134,7 @@ var process_k_input: SpinBox
 var process_duration_input: SpinBox
 var process_practice_input: SpinBox
 var process_context_input: TextEdit
+var process_requirements_label: Label
 var process_run_button: Button
 var result_panel: PanelContainer
 var result_label: Label
@@ -307,6 +309,9 @@ func _build_ui() -> void:
 	process_lab_content.add_theme_constant_override("separation", 6)
 	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
 	process_lab_content.add_child(_label("RESOLVER PROCESO · DEMANDA DE ETERIUM", 9, TEAL))
+	process_requirements_label = _label("Las magnitudes requeridas se muestran según la ley cuantitativa registrada.", 9, MUTED)
+	process_requirements_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	process_lab_content.add_child(process_requirements_label)
 	var process_options := HBoxContainer.new()
 	process_options.add_theme_constant_override("separation", 7)
 	process_lab_content.add_child(process_options)
@@ -733,10 +738,15 @@ func _refresh_actions() -> void:
 	if is_instance_valid(process_lab_panel):
 		process_lab_panel.visible = current_key == "procesos" and not selected.is_empty()
 	if is_instance_valid(process_run_button):
-		process_run_button.disabled = selected.is_empty() or process_oris_option.item_count == 0
+		var oris_metadata: Variant = null
+		if process_oris_option.item_count > 0 and process_oris_option.get_selected() >= 0:
+			oris_metadata = process_oris_option.get_item_metadata(process_oris_option.get_selected())
+		process_run_button.disabled = selected.is_empty() or current_key != "procesos" or oris_metadata == null or str(oris_metadata).is_empty()
 
 
 func _run_simulation() -> void:
+	last_rpc.clear()
+	result_panel.visible = false
 	if current_key == "iums":
 		if selected_ids.is_empty():
 			_show_result("Incluye al menos un IUM en el montaje.")
@@ -778,15 +788,21 @@ func _run_process_eterium() -> void:
 	if selected.is_empty() or current_key != "procesos":
 		_show_result("Selecciona un proceso canónico antes de calcular su demanda.")
 		return
-	if process_oris_option.item_count == 0 or process_oris_option.selected < 0:
+	if process_oris_option.item_count == 0 or process_oris_option.get_selected() < 0:
 		_show_result("Este proceso no tiene un Oris activo disponible para resolver.")
+		return
+	var selected_oris_metadata: Variant = process_oris_option.get_item_metadata(process_oris_option.get_selected())
+	if selected_oris_metadata == null or str(selected_oris_metadata).is_empty():
+		_show_result("No se encontró un vínculo canónico activo entre este proceso y un Oris.")
 		return
 	var context_data: Variant = JSON.parse_string(process_context_input.text)
 	if not context_data is Dictionary:
 		_show_result("El contexto debe ser un objeto JSON válido. Ejemplo: {\"masa_objetivo\": 2}")
 		return
-	var oris_id := str(process_oris_option.get_item_metadata(process_oris_option.selected))
-	var time_model := process_time_model.get_item_text(process_time_model.selected)
+	var oris_id := str(selected_oris_metadata)
+	var time_model := process_time_model.get_item_text(process_time_model.get_selected())
+	last_rpc.clear()
+	result_panel.visible = false
 	_set_status("Calculando física y demanda de Eterium en Supabase…", YELLOW)
 	_request("rpc:eterium", "/rest/v1/rpc/calcular_requerimiento_eterium_proceso_v1", HTTPClient.METHOD_POST, {
 		"p_oris_id": oris_id,
@@ -806,7 +822,7 @@ func _refresh_process_oris() -> void:
 	process_oris_option.clear()
 	if selected.is_empty() or current_key != "procesos":
 		process_oris_option.add_item("Selecciona un proceso")
-		process_oris_option.set_item_disabled(0, true)
+		_update_process_requirements()
 		return
 	var process_id := str(selected.get("id", ""))
 	var seen: Array[String] = []
@@ -827,10 +843,34 @@ func _refresh_process_oris() -> void:
 		process_oris_option.set_item_metadata(process_oris_option.item_count - 1, oris_id)
 	if process_oris_option.item_count == 0:
 		process_oris_option.add_item("Sin Oris activo vinculado")
-		process_oris_option.set_item_disabled(0, true)
 	else:
 		process_oris_option.select(0)
+	_update_process_requirements()
 	_refresh_actions()
+
+
+func _update_process_requirements() -> void:
+	if not is_instance_valid(process_requirements_label):
+		return
+	if selected.is_empty() or current_key != "procesos":
+		process_requirements_label.text = "Selecciona un proceso para consultar su ley y magnitudes."
+		return
+	var requirements: Array[String] = []
+	var laws := _related_rows("process_laws", "proceso_id", str(selected.get("id", "")))
+	for law in laws:
+		var magnitudes: Variant = law.get("magnitudes_requeridas", [])
+		var magnitude_names: Array[String] = []
+		if magnitudes is Array:
+			for magnitude in magnitudes:
+				magnitude_names.append(str(magnitude))
+		var line := str(law.get("clave", law.get("modelo", "Ley"))) + " · " + str(law.get("formula", "fórmula no indicada"))
+		if not magnitude_names.is_empty():
+			line += " · Variables: " + ", ".join(magnitude_names)
+		requirements.append(line)
+	if requirements.is_empty():
+		process_requirements_label.text = "No se encontró una ley cuantitativa registrada para este proceso. Supabase devolverá el estado de resolución que corresponda."
+	else:
+		process_requirements_label.text = "Según Supabase: " + " | ".join(requirements)
 
 
 func _show_result(message: String) -> void:
