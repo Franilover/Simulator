@@ -751,6 +751,8 @@ func _refresh_actions() -> void:
 func _run_simulation() -> void:
 	last_rpc.clear()
 	result_panel.visible = false
+	_render_graph()
+	_render_inspector()
 	if current_key == "iums":
 		if selected_ids.is_empty():
 			_show_result("Incluye al menos un IUM en el montaje.")
@@ -789,6 +791,10 @@ func _run_simulation() -> void:
 
 
 func _run_process_eterium() -> void:
+	last_rpc.clear()
+	result_panel.visible = false
+	_render_graph()
+	_render_inspector()
 	if selected.is_empty() or current_key != "procesos":
 		_show_result("Selecciona un proceso canónico antes de calcular su demanda.")
 		return
@@ -805,8 +811,6 @@ func _run_process_eterium() -> void:
 		return
 	var oris_id := str(selected_oris_metadata)
 	var time_model := process_time_model.get_item_text(process_time_model.get_selected())
-	last_rpc.clear()
-	result_panel.visible = false
 	_set_status("Calculando física y demanda de Eterium en Supabase…", YELLOW)
 	_request("rpc:eterium", "/rest/v1/rpc/calcular_requerimiento_eterium_proceso_v1", HTTPClient.METHOD_POST, {
 		"p_oris_id": oris_id,
