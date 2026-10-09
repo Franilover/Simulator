@@ -424,6 +424,7 @@ func _load_catalogues() -> void:
 	_get_relation("process_models", "/rest/v1/proceso_modelos_resolucion_v1?select=id,proceso_id,clave,modo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
 	_get_relation("process_law_variables", "/rest/v1/proceso_ley_variables_v1?select=ley_id,variable_clave,obligatorio,magnitudes_fisicas(clave,nombre,simbolo,dimension)&limit=1500")
 	_get_relation("ium_config", "/rest/v1/iums_configuraciones_funcionales?select=ium_id,patron_organizacion,topologia_acoplamiento,regimen_garin,requiere_coherencia_eterium,descripcion,modo_acoplamiento_garin,dependencia_eterium,etapa_eterium&limit=100")
+	_get_relation("ium_outputs", "/rest/v1/ium_salidas_funcionales?select=ium_id,clave,nombre,tipo_salida,es_principal,orden&es_principal=eq.true&limit=100")
 	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=ium_id,cantidad,particulas(nombre,orden)&limit=300")
 	_get_relation("element_particles", "/rest/v1/elemento_particulas?select=elemento_id,capa,cantidad,particulas(nombre,orden)&limit=1000")
 	_get_relation("compound_elements", "/rest/v1/compuesto_elementos?select=compuesto_id,cantidad,proporcion_molar,rol,orden_estructura,elementos(nombre,simbolo)&limit=1000")
@@ -963,6 +964,25 @@ func _render_graph() -> void:
 		return
 	if not last_rpc.is_empty():
 		_graph_rpc_result(last_rpc.get("data", {}), str(last_rpc.get("tag", "")))
+		return
+	if current_key == "iums" and not selected_ids.is_empty():
+		graph_title.text = "Montaje IUM · " + str(selected_ids.size()) + " componente(s)"
+		var preview_nodes: Array = []
+		var display_count := mini(selected_ids.size(), 2)
+		for index in range(display_count):
+			var ium_id := selected_ids[index]
+			var ium_name := ium_id
+			for ium_row in catalogs.get("iums", []):
+				if ium_row is Dictionary and str(ium_row.get("id", "")) == ium_id:
+					ium_name = str(ium_row.get("nombre", ium_id))
+					break
+			var output_row := _first_related("ium_outputs", "ium_id", ium_id)
+			var output_name := str(output_row.get("nombre", output_row.get("clave", "Salida principal pendiente")))
+			preview_nodes.append({"role": "IUM " + str(index + 1), "title": ium_name, "detail": "Salida: " + output_name, "color": LAVENDER})
+		if selected_ids.size() > 2:
+			preview_nodes.append({"role": "OTROS IUMS", "title": "+" + str(selected_ids.size() - 2), "detail": "Más IUMs incluidos en este orden", "color": ACCENT})
+		preview_nodes.append({"role": "MONTAJE", "title": "Listo para evaluar", "detail": str(selected_ids.size()) + " IUM · " + str(maxi(0, selected_ids.size() - 1)) + " unión(es) dirigida(s)", "color": TEAL})
+		graph.set_graph(preview_nodes, "VISTA PREVIA · CONFIGURACIÓN EXPERIMENTAL")
 		return
 	if selected.is_empty():
 		graph_title.text = "Selecciona una entidad"
