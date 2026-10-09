@@ -994,7 +994,7 @@ func _render_graph() -> void:
 				if ium_row is Dictionary and str(ium_row.get("id", "")) == ium_id:
 					ium_name = str(ium_row.get("nombre", ium_id))
 					break
-			var output_row := _first_related("ium_outputs", "ium_id", ium_id)
+			var output_row: Dictionary = _related_row("ium_outputs", "ium_id", ium_id)
 			var output_name := str(output_row.get("nombre", output_row.get("clave", "Salida principal pendiente")))
 			preview_nodes.append({"role": "IUM " + str(index + 1), "title": ium_name, "detail": "Salida: " + output_name, "color": LAVENDER})
 		if selected_ids.size() > 2:
