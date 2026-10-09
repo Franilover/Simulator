@@ -345,6 +345,9 @@ func _load_catalogues() -> void:
 	_get_catalog("organismos", "/rest/v1/organismos?select=id,nombre,descripcion,tipo_organismo,nivel_conciencia,propiedades_calculadas,estado_calculo,material_id,organismo_base_id,clado_id&order=orden.asc&limit=250")
 
 	_get_relation("oris_demanda", "/rest/v1/v_oris_demanda_eterium_v2?select=oris_id,nombre,dominio,formula,tareas,n_iums,n_uniones,unidades_organizacion,demanda_eterium_organizacion,unidad_eterium,formula_demanda,modelo&order=orden.asc&limit=100")
+	_get_relation("process_laws", "/rest/v1/proceso_leyes_cuantitativas_v1?select=id,proceso_id,clave,modelo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
+	_get_relation("process_models", "/rest/v1/proceso_modelos_resolucion_v1?select=id,proceso_id,clave,modo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
+	_get_relation("process_law_variables", "/rest/v1/proceso_ley_variables_v1?select=ley_id,variable_clave,obligatorio,magnitudes_fisicas(clave,nombre,simbolo,dimension)&limit=1500")
 	_get_relation("ium_config", "/rest/v1/iums_configuraciones_funcionales?select=ium_id,patron_organizacion,topologia_acoplamiento,regimen_garin,requiere_coherencia_eterium,descripcion,modo_acoplamiento_garin,dependencia_eterium,etapa_eterium&limit=100")
 	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=ium_id,cantidad,particulas(nombre,orden)&limit=300")
 	_get_relation("element_particles", "/rest/v1/elemento_particulas?select=elemento_id,capa,cantidad,particulas(nombre,orden)&limit=1000")
@@ -705,8 +708,19 @@ func _render_graph() -> void:
 	var nodes: Array = []
 	match current_key:
 		"procesos":
+			var process_id := str(selected.get("id", ""))
+			var laws := _related_rows("process_laws", "proceso_id", process_id)
+			var models := _related_rows("process_models", "proceso_id", process_id)
+			var law_title := "Sin ley vinculada"
+			var law_detail := "No hay ley cuantitativa registrada para este proceso"
+			if not laws.is_empty():
+				law_title = str(laws[0].get("clave", laws[0].get("modelo", "Ley registrada")))
+				law_detail = str(laws[0].get("formula", laws[0].get("descripcion", "Ley registrada")))
+			if not models.is_empty():
+				law_detail += "\nResolución: " + str(models[0].get("modo", models[0].get("clave", "modelo registrado")))
 			nodes = [
 				{"role": "ENTRADA", "title": "Entrada", "detail": str(selected.get("entrada", "No descrita en el registro")), "color": TEAL},
+				{"role": "LEY", "title": law_title, "detail": law_detail, "color": LAVENDER},
 				{"role": "TRANSFORMACIÓN", "title": str(selected.get("nombre", "Proceso")), "detail": str(selected.get("transformacion", selected.get("descripcion", "Sin descripción"))), "color": ACCENT},
 				{"role": "SALIDA", "title": "Salida", "detail": str(selected.get("salida", "No descrita en el registro")), "color": GREEN}
 			]
@@ -806,6 +820,20 @@ func _render_inspector() -> void:
 			_add_detail("Conservación", str(selected.get("conservacion", "Sin balance descrito")))
 			_add_detail("Regla / fundamento", str(selected.get("regla_clave", "—")) + " / " + str(selected.get("estado_fundamento", "—")))
 			_add_detail("Revisión requerida", str(selected.get("revision_requerida", "No indicado")), YELLOW)
+			var law_rows := _related_rows("process_laws", "proceso_id", str(selected.get("id", "")))
+			for law in law_rows:
+				var law_variables: Array[String] = []
+				for variable in _related_rows("process_law_variables", "ley_id", str(law.get("id", ""))):
+					var requirement := "obligatoria" if bool(variable.get("obligatorio", true)) else "opcional"
+					law_variables.append(str(variable.get("variable_clave", "variable")) + " · " + requirement)
+				var law_value := str(law.get("formula", law.get("descripcion", "Ley registrada")))
+				law_value += "\nModelo: " + str(law.get("modelo", "No indicado"))
+				if not law_variables.is_empty():
+					law_value += "\nVariables: " + ", ".join(law_variables)
+				_add_detail("Ley cuantitativa · " + str(law.get("clave", "sin clave")), law_value, TEAL)
+			var resolution_rows := _related_rows("process_models", "proceso_id", str(selected.get("id", "")))
+			for resolution in resolution_rows:
+				_add_detail("Modelo de resolución · " + str(resolution.get("clave", "sin clave")), str(resolution.get("formula", resolution.get("descripcion", "Modelo registrado"))) + "\nModo: " + str(resolution.get("modo", "No indicado")) + "\nMagnitudes: " + _pretty(resolution.get("magnitudes_requeridas", {})), LAVENDER)
 		"oris":
 			_add_detail("Dominio", str(selected.get("dominio", "—")))
 			_add_detail("Familia", str(selected.get("familia", "—")))
