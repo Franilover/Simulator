@@ -1348,7 +1348,7 @@ func _button(text_value: String, action: Callable, active: bool = false) -> Butt
 	var button := Button.new()
 	button.text = text_value
 	button.focus_mode = Control.FOCUS_ALL
-	button.add_theme_font_size_override("font_size", 11)
+	button.add_theme_font_size_override("font_size", 12)
 	button.add_theme_color_override("font_color", TEXT_COLOR)
 	button.add_theme_color_override("font_hover_color", TEXT_COLOR)
 	button.add_theme_color_override("font_pressed_color", TEXT_COLOR)
