@@ -39,7 +39,7 @@ class FlowCanvas extends Control:
 		while gy < size.y:
 			draw_line(Vector2(0, gy), Vector2(size.x, gy), Color(0.42, 0.43, 0.55, 0.13), 1.0)
 			gy += 28.0
-		draw_string(ThemeDB.fallback_font, Vector2(18, 24), caption.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 10, SUBTLE)
+		draw_string(ThemeDB.fallback_font, Vector2(18, 22), caption.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 11, SUBTLE)
 		if nodes_data.is_empty():
 			draw_string(ThemeDB.fallback_font, Vector2(22, size.y * 0.52), "Selecciona una entidad para inspeccionar sus relaciones.", HORIZONTAL_ALIGNMENT_LEFT, size.x - 44, 14, INK)
 			return
@@ -78,7 +78,6 @@ class FlowCanvas extends Control:
 			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 9, tint)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 14, -1, INK)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#bac2de"))
-		draw_string(ThemeDB.fallback_font, Vector2(18, size.y - 14), "%02d ETAPAS VISUALIZADAS" % count, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, SUBTLE)
 
 	func _short(value: String, length: int) -> String:
 		if value.length() <= length:
@@ -253,13 +252,11 @@ func _build_ui() -> void:
 	var graph_titles := VBoxContainer.new()
 	graph_titles.add_theme_constant_override("separation", 2)
 	center_header.add_child(graph_titles)
-	graph_titles.add_child(_label("GRAFO DE SISTEMA", 10, MUTED))
 	graph_title = _label("Selecciona una entidad", 17, TEXT_COLOR)
 	graph_titles.add_child(graph_title)
 	var head_spacer := Control.new()
 	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center_header.add_child(head_spacer)
-	center_header.add_child(_label("VISTA ESTRUCTURAL", 9, ACCENT))
 
 	graph = FlowCanvas.new()
 	graph.custom_minimum_size = Vector2(420, 250)
@@ -270,7 +267,7 @@ func _build_ui() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	center.add_child(actions)
-	var note := _label("Relaciones visuales tomadas del canon; no inventan resultados físicos.", 9, MUTED)
+	var note := _label("Relaciones registradas para la entidad seleccionada.", 11, MUTED)
 	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	actions.add_child(note)
@@ -372,14 +369,6 @@ func _build_ui() -> void:
 	inspector_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inspector_content.add_theme_constant_override("separation", 10)
 	inspector_scroll.add_child(inspector_content)
-
-	var footer := HBoxContainer.new()
-	page.add_child(footer)
-	footer.add_child(_label("LECTURA · RPC DE CÁLCULO · SIN ESCRITURAS AL CANON", 9, Color("#6c7086")))
-	var footer_spacer := Control.new()
-	footer_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	footer.add_child(footer_spacer)
-	footer.add_child(_label("TASI → ELEMENTOS → COMPUESTOS → MATERIALES → OBJETOS", 9, Color("#6c7086")))
 
 
 func _load_catalogues() -> void:
