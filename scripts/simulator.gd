@@ -908,6 +908,10 @@ func _rpc_summary(data: Variant, tag: String) -> String:
 		lines.append("Eterium liberado: " + str(data.get("eterium_liberado_necesario", "no resuelto")))
 		lines.append("Demanda física: " + str(data.get("demanda_fisica_eterium", "no resuelta")))
 		lines.append("Coste temporal: " + str(data.get("costo_temporal_eterium", "no resuelto")))
+		var organization: Variant = data.get("organizacion_proceso", {})
+		if organization is Dictionary:
+			lines.append("Configuración IUM: " + str(organization.get("configuracion_version", "versión no indicada")) + " · " + str(organization.get("configuracion_estado", "estado no indicado")))
+			lines.append("Organización: " + str(organization.get("n_iums", "—")) + " IUM · " + str(organization.get("n_uniones", "—")) + " uniones")
 	else:
 		var props: Array[String] = []
 		for key in ["masa", "carga", "volumen_real", "volumen", "densidad_real", "densidad", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "transparencia", "interaccion"]:
@@ -946,12 +950,21 @@ func _graph_rpc_result(data: Variant, tag: String) -> void:
 		var org_cost := str(data.get("organizacion_proceso_eterium", "no resuelto"))
 		var physical_cost := str(data.get("demanda_fisica_eterium", "no resuelto"))
 		var temporal_cost := str(data.get("costo_temporal_eterium", "no resuelto"))
+		var organization: Variant = data.get("organizacion_proceso", {})
+		var config_state := ""
+		var config_label := "Configuración de acoplamiento"
+		if organization is Dictionary:
+			config_state = str(organization.get("configuracion_estado", ""))
+			config_label = str(organization.get("configuracion_version", "versión no indicada")) + " · " + config_state
+		var result_tint: Color = GREEN if state == "calculado" else YELLOW
+		if not config_state.is_empty() and config_state not in ["canonico", "canonico_formal", "validada", "vigente"]:
+			result_tint = YELLOW
 		nodes = [
-			{"role": "ORIS", "title": str(data.get("oris", "Oris")), "detail": "Configuración de acoplamiento", "color": LAVENDER},
+			{"role": "ORIS", "title": str(data.get("oris", "Oris")), "detail": config_label, "color": YELLOW if config_state == "propuesta" else LAVENDER},
 			{"role": "PROCESO", "title": str(data.get("proceso", "Proceso")), "detail": "Ley cuantitativa y contexto físico", "color": ACCENT},
 			{"role": "FÍSICA", "title": "Demanda física", "detail": physical_cost + " Eterium", "color": TEAL},
 			{"role": "COSTE", "title": "Eterium estable", "detail": org_cost + " org. + " + temporal_cost + " temporal", "color": ORANGE},
-			{"role": "RESULTADO", "title": state, "detail": "Liberación: " + str(data.get("eterium_liberado_necesario", "no resuelta")), "color": GREEN if state == "calculado" else YELLOW}
+			{"role": "RESULTADO", "title": state, "detail": "Liberación: " + str(data.get("eterium_liberado_necesario", "no resuelta")), "color": result_tint}
 		]
 		graph.set_graph(nodes, "ORIS · LEY FÍSICA · DEMANDA DE ETERIUM")
 		return
@@ -1113,6 +1126,13 @@ func _render_inspector() -> void:
 				_add_detail("Coste temporal", str(response.get("costo_temporal_eterium", "No resuelto")))
 				_add_detail("Eterium estable requerido", str(response.get("eterium_estable_requerido", "No resuelto")), TEAL)
 				_add_detail("Eterium liberado necesario", str(response.get("eterium_liberado_necesario", "No resuelto")), GREEN)
+				var organization: Variant = response.get("organizacion_proceso", {})
+				if organization is Dictionary:
+					var config_state := str(organization.get("configuracion_estado", "estado no indicado"))
+					var config_tint: Color = GREEN if config_state in ["canonico", "canonico_formal", "validada", "vigente"] else YELLOW
+					_add_detail("Configuración IUM / estado", str(organization.get("configuracion_version", "versión no indicada")) + " · " + config_state, config_tint)
+					_add_detail("Organización", str(organization.get("n_iums", "—")) + " IUM · " + str(organization.get("n_uniones", "—")) + " uniones")
+				_add_detail("Resolución física", _pretty(response.get("demanda_fisica", {})))
 				_add_detail("Fórmulas del motor", _pretty(response.get("formulas", {})))
 			else:
 				for property_key in ["masa", "carga", "volumen_real", "volumen", "densidad_real", "densidad", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "transparencia", "interaccion", "nota"]:
