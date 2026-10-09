@@ -126,6 +126,14 @@ var status_dot: ColorRect
 var count_labels: Dictionary = {}
 var selection_button: Button
 var simulate_button: Button
+var process_lab_panel: PanelContainer
+var process_oris_option: OptionButton
+var process_time_model: OptionButton
+var process_k_input: SpinBox
+var process_duration_input: SpinBox
+var process_practice_input: SpinBox
+var process_context_input: TextEdit
+var process_run_button: Button
 var result_panel: PanelContainer
 var result_label: Label
 var graph_title: Label
@@ -292,6 +300,67 @@ func _build_ui() -> void:
 	simulate_button.visible = false
 	actions.add_child(simulate_button)
 
+	process_lab_panel = _panel()
+	process_lab_panel.visible = false
+	center.add_child(process_lab_panel)
+	var process_lab_content := VBoxContainer.new()
+	process_lab_content.add_theme_constant_override("separation", 6)
+	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
+	process_lab_content.add_child(_label("RESOLVER PROCESO · DEMANDA DE ETERIUM", 9, TEAL))
+	var process_options := HBoxContainer.new()
+	process_options.add_theme_constant_override("separation", 7)
+	process_lab_content.add_child(process_options)
+	var oris_column := VBoxContainer.new()
+	oris_column.add_theme_constant_override("separation", 3)
+	oris_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	process_options.add_child(oris_column)
+	oris_column.add_child(_label("ORIS COMPATIBLE CON EL PROCESO", 9, MUTED))
+	process_oris_option = OptionButton.new()
+	process_oris_option.add_theme_stylebox_override("normal", _field_style())
+	process_oris_option.add_theme_color_override("font_color", TEXT_COLOR)
+	oris_column.add_child(process_oris_option)
+	var model_column := VBoxContainer.new()
+	model_column.add_theme_constant_override("separation", 3)
+	model_column.custom_minimum_size.x = 150
+	process_options.add_child(model_column)
+	model_column.add_child(_label("MODELO TEMPORAL", 9, MUTED))
+	process_time_model = OptionButton.new()
+	for temporal_model in ["PULSO", "CONSTANTE", "CRECIENTE", "DECRECIENTE"]:
+		process_time_model.add_item(temporal_model)
+	process_time_model.select(0)
+	process_time_model.add_theme_stylebox_override("normal", _field_style())
+	process_time_model.add_theme_color_override("font_color", TEXT_COLOR)
+	model_column.add_child(process_time_model)
+
+	var parameter_row := HBoxContainer.new()
+	parameter_row.add_theme_constant_override("separation", 10)
+	process_lab_content.add_child(parameter_row)
+	process_k_input = _spinbox(0.0, 1000000000.0, 0.1, 0.0)
+	process_duration_input = _spinbox(0.0, 1000000000.0, 0.1, 1.0)
+	process_practice_input = _spinbox(0.0, 1.0, 0.05, 1.0)
+	parameter_row.add_child(_labeled_control("k temporal", process_k_input))
+	parameter_row.add_child(_labeled_control("Duración (s)", process_duration_input))
+	parameter_row.add_child(_labeled_control("Práctica · 0–1", process_practice_input))
+
+	var context_row := VBoxContainer.new()
+	context_row.add_theme_constant_override("separation", 3)
+	process_lab_content.add_child(context_row)
+	context_row.add_child(_label("CONTEXTO / RESOLUCIÓN FÍSICA · JSON", 9, MUTED))
+	process_context_input = TextEdit.new()
+	process_context_input.custom_minimum_size.y = 62
+	process_context_input.placeholder_text = "{\"masa_objetivo\": 2, \"temperatura_inicial\": 300}"
+	process_context_input.text = "{}"
+	process_context_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	process_context_input.add_theme_color_override("font_color", TEXT_COLOR)
+	process_context_input.add_theme_stylebox_override("normal", _field_style())
+	process_context_input.add_theme_stylebox_override("focus", _field_style(true))
+	context_row.add_child(process_context_input)
+	var process_actions := HBoxContainer.new()
+	process_actions.alignment = BoxContainer.ALIGNMENT_END
+	process_lab_content.add_child(process_actions)
+	process_run_button = _button("Calcular demanda en Supabase", Callable(self, "_run_process_eterium"), true)
+	process_actions.add_child(process_run_button)
+
 	result_panel = _panel()
 	result_panel.visible = false
 	result_panel.custom_minimum_size.y = 112
@@ -345,6 +414,7 @@ func _load_catalogues() -> void:
 	_get_catalog("organismos", "/rest/v1/organismos?select=id,nombre,descripcion,tipo_organismo,nivel_conciencia,propiedades_calculadas,estado_calculo,material_id,organismo_base_id,clado_id&order=orden.asc&limit=250")
 
 	_get_relation("oris_demanda", "/rest/v1/v_oris_demanda_eterium_v2?select=oris_id,nombre,dominio,formula,tareas,n_iums,n_uniones,unidades_organizacion,demanda_eterium_organizacion,unidad_eterium,formula_demanda,modelo&order=orden.asc&limit=100")
+	_get_relation("process_oris", "/rest/v1/oris_procesos?select=oris_id,proceso_id,oris(id,nombre,orden)&activo=eq.true&limit=2000")
 	_get_relation("process_laws", "/rest/v1/proceso_leyes_cuantitativas_v1?select=id,proceso_id,clave,modelo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
 	_get_relation("process_models", "/rest/v1/proceso_modelos_resolucion_v1?select=id,proceso_id,clave,modo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
 	_get_relation("process_law_variables", "/rest/v1/proceso_ley_variables_v1?select=ley_id,variable_clave,obligatorio,magnitudes_fisicas(clave,nombre,simbolo,dimension)&limit=1500")
@@ -433,6 +503,8 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 			push_warning("Relación " + key + ": " + message)
 		_render_graph()
 		_render_inspector()
+		_refresh_process_oris()
+		_refresh_actions()
 		return
 
 	if tag.begins_with("rpc:"):
@@ -619,6 +691,7 @@ func _on_item_pressed(item: Dictionary) -> void:
 	_render_catalog()
 	_render_graph()
 	_render_inspector()
+	_refresh_process_oris()
 	_refresh_actions()
 
 
@@ -645,7 +718,7 @@ func _toggle_selection() -> void:
 func _refresh_actions() -> void:
 	if not is_instance_valid(selection_button) or not is_instance_valid(simulate_button):
 		return
-	var supports_selection := current_key == "elementos" or current_key == "compuestos"
+	var supports_selection := current_key == "elementos" or current_key == "compuestos" or current_key == "iums"
 	selection_button.visible = supports_selection
 	if selected.is_empty():
 		selection_button.text = "Selecciona un registro"
@@ -655,10 +728,41 @@ func _refresh_actions() -> void:
 		selection_button.disabled = ident.is_empty()
 		selection_button.text = ("Quitar de selección" if selected_ids.has(ident) else "Incluir en selección") + " · " + str(selected_ids.size())
 	simulate_button.visible = supports_selection
-	simulate_button.disabled = selected_ids.size() < 2
+	var required_count := 1 if current_key == "iums" else 2
+	simulate_button.disabled = selected_ids.size() < required_count
+	if is_instance_valid(process_lab_panel):
+		process_lab_panel.visible = current_key == "procesos" and not selected.is_empty()
+	if is_instance_valid(process_run_button):
+		process_run_button.disabled = selected.is_empty() or process_oris_option.item_count == 0
 
 
 func _run_simulation() -> void:
+	if current_key == "iums":
+		if selected_ids.is_empty():
+			_show_result("Incluye al menos un IUM en el montaje.")
+			return
+		var components: Array[Dictionary] = []
+		for index in range(selected_ids.size()):
+			components.append({
+				"ium_id": selected_ids[index],
+				"rol": "componente",
+				"posicion": "X",
+				"orden": index + 1
+			})
+		var links: Array[Dictionary] = []
+		for index in range(selected_ids.size() - 1):
+			links.append({
+				"origen": selected_ids[index],
+				"destino": selected_ids[index + 1],
+				"tipo_union": "dirigida"
+			})
+		_set_status("Evaluando organización IUM en Supabase…", YELLOW)
+		_request("rpc:ium", "/rest/v1/rpc/simular_organizacion_ium_v1", HTTPClient.METHOD_POST, {
+			"p_componentes": components,
+			"p_enlaces": links,
+			"p_contexto": {"origen": "Simulator", "modo": "experimental_no_persistente"}
+		})
+		return
 	if selected_ids.size() < 2:
 		_show_result("Selecciona al menos dos registros.")
 		return
@@ -668,6 +772,65 @@ func _run_simulation() -> void:
 	elif current_key == "compuestos":
 		_set_status("Calculando material en Supabase…", YELLOW)
 		_request("rpc:material", "/rest/v1/rpc/simular_material_desde_compuestos", HTTPClient.METHOD_POST, {"p_compuesto_ids": selected_ids})
+
+
+func _run_process_eterium() -> void:
+	if selected.is_empty() or current_key != "procesos":
+		_show_result("Selecciona un proceso canónico antes de calcular su demanda.")
+		return
+	if process_oris_option.item_count == 0 or process_oris_option.selected < 0:
+		_show_result("Este proceso no tiene un Oris activo disponible para resolver.")
+		return
+	var context_data: Variant = JSON.parse_string(process_context_input.text)
+	if not context_data is Dictionary:
+		_show_result("El contexto debe ser un objeto JSON válido. Ejemplo: {\"masa_objetivo\": 2}")
+		return
+	var oris_id := str(process_oris_option.get_item_metadata(process_oris_option.selected))
+	var time_model := process_time_model.get_item_text(process_time_model.selected)
+	_set_status("Calculando física y demanda de Eterium en Supabase…", YELLOW)
+	_request("rpc:eterium", "/rest/v1/rpc/calcular_requerimiento_eterium_proceso_v1", HTTPClient.METHOD_POST, {
+		"p_oris_id": oris_id,
+		"p_proceso_id": str(selected.get("id", "")),
+		"p_resolucion": context_data,
+		"p_contexto": context_data,
+		"p_arquetipo_tiempo": time_model,
+		"p_k_tiempo": process_k_input.value,
+		"p_tiempo": process_duration_input.value,
+		"p_factor_practica": process_practice_input.value
+	})
+
+
+func _refresh_process_oris() -> void:
+	if not is_instance_valid(process_oris_option):
+		return
+	process_oris_option.clear()
+	if selected.is_empty() or current_key != "procesos":
+		process_oris_option.add_item("Selecciona un proceso")
+		process_oris_option.set_item_disabled(0, true)
+		return
+	var process_id := str(selected.get("id", ""))
+	var seen: Array[String] = []
+	for mapping in relations.get("process_oris", []):
+		if not mapping is Dictionary or str(mapping.get("proceso_id", "")) != process_id:
+			continue
+		var oris_id := str(mapping.get("oris_id", ""))
+		var oris_value: Variant = mapping.get("oris", {})
+		if oris_value is Array and not oris_value.is_empty():
+			oris_value = oris_value[0]
+		if not oris_value is Dictionary:
+			continue
+		var oris_name := str(oris_value.get("nombre", "Oris"))
+		if oris_id.is_empty() or seen.has(oris_id):
+			continue
+		seen.append(oris_id)
+		process_oris_option.add_item(oris_name)
+		process_oris_option.set_item_metadata(process_oris_option.item_count - 1, oris_id)
+	if process_oris_option.item_count == 0:
+		process_oris_option.add_item("Sin Oris activo vinculado")
+		process_oris_option.set_item_disabled(0, true)
+	else:
+		process_oris_option.select(0)
+	_refresh_actions()
 
 
 func _show_result(message: String) -> void:
@@ -680,12 +843,43 @@ func _graph_rpc_result(data: Variant, tag: String) -> void:
 	var detail := JSON.stringify(data, " ")
 	if data is Dictionary:
 		state = str(data.get("estado", data.get("status", state)))
+	var nodes: Array = []
+	if tag == "rpc:ium" and data is Dictionary:
+		var components: Array = data.get("componentes", [])
+		for index in range(mini(components.size(), 2)):
+			var component: Dictionary = components[index]
+			nodes.append({"role": "IUM " + str(index + 1), "title": str(component.get("ium", component.get("ium_id", "IUM"))), "detail": "Salida: " + str(component.get("salida_funcional", "sin salida resuelta")), "color": LAVENDER})
+		if components.size() > 2:
+			nodes.append({"role": "MONTAJE", "title": "+" + str(components.size() - 2) + " IUMs", "detail": "Componentes adicionales del montaje", "color": ACCENT})
+		var candidates: Array = data.get("procesos_candidatos", [])
+		var candidate_names: Array[String] = []
+		for candidate in candidates.slice(0, 3):
+			if candidate is Dictionary:
+				candidate_names.append(str(candidate.get("proceso", "Proceso")))
+		var candidate_summary := ", ".join(candidate_names) if not candidate_names.is_empty() else "Sin patrón completo coincidente"
+		nodes.append({"role": "RESOLUCIÓN", "title": str(data.get("proceso_principal", state)), "detail": candidate_summary, "color": GREEN if state == "simulado" else YELLOW})
+		graph.set_graph(nodes, "ORGANIZACIÓN IUM · EVALUACIÓN NO PERSISTENTE")
+		return
+	if tag == "rpc:eterium" and data is Dictionary:
+		var org_cost := str(data.get("organizacion_proceso_eterium", "no resuelto"))
+		var physical_cost := str(data.get("demanda_fisica_eterium", "no resuelto"))
+		var temporal_cost := str(data.get("costo_temporal_eterium", "no resuelto"))
+		nodes = [
+			{"role": "ORIS", "title": str(data.get("oris", "Oris")), "detail": "Configuración de acoplamiento", "color": LAVENDER},
+			{"role": "PROCESO", "title": str(data.get("proceso", "Proceso")), "detail": "Ley cuantitativa y contexto físico", "color": ACCENT},
+			{"role": "FÍSICA", "title": "Demanda física", "detail": physical_cost + " Eterium", "color": TEAL},
+			{"role": "COSTE", "title": "Eterium estable", "detail": org_cost + " org. + " + temporal_cost + " temporal", "color": ORANGE},
+			{"role": "RESULTADO", "title": state, "detail": "Liberación: " + str(data.get("eterium_liberado_necesario", "no resuelta")), "color": GREEN if state == "calculado" else YELLOW}
+		]
+		graph.set_graph(nodes, "ORIS · LEY FÍSICA · DEMANDA DE ETERIUM")
+		return
 	var title := "Formar compuesto" if tag == "rpc:compuesto" else "Formar material"
-	graph.set_graph([
+	nodes = [
 		{"role": "ENTRADA", "title": str(selected_ids.size()) + " entidades", "detail": "Selección del catálogo canónico", "color": TEAL},
 		{"role": "RPC EXISTENTE", "title": title, "detail": "Resolución delegada a PostgreSQL", "color": ACCENT},
-		{"role": "RESULTADO", "title": state, "detail": detail.substr(0, 100), "color": GREEN if state.to_lower().contains("calcul") else YELLOW}
-	], "EJECUCIÓN REAL · RESPUESTA DE SUPABASE")
+		{"role": "RESULTADO", "title": state, "detail": detail.substr(0, 100), "color": GREEN if state.to_lower().contains("calcul") or state.to_lower().contains("simulad") else YELLOW}
+	]
+	graph.set_graph(nodes, "EJECUCIÓN REAL · RESPUESTA DE SUPABASE")
 
 
 func _render_graph() -> void:
@@ -802,6 +996,29 @@ func _render_inspector() -> void:
 	if not is_instance_valid(inspector_content):
 		return
 	_clear(inspector_content)
+	if not last_rpc.is_empty():
+		var response: Variant = last_rpc.get("data", {})
+		var rpc_tag := str(last_rpc.get("tag", ""))
+		inspector_title.text = "Respuesta del motor"
+		if response is Dictionary:
+			_add_detail("Estado", str(response.get("estado", "respuesta recibida")), GREEN if str(response.get("estado", "")).to_lower() in ["calculado", "simulado", "lista_para_ejecucion"] else YELLOW)
+			if rpc_tag == "rpc:ium":
+				_add_detail("Salidas funcionales", _pretty(response.get("salidas", [])), TEAL)
+				_add_detail("Procesos candidatos", _pretty(response.get("procesos_candidatos", [])), LAVENDER)
+				_add_detail("Proceso principal", str(response.get("proceso_principal", "No determinado")))
+			elif rpc_tag == "rpc:eterium":
+				_add_detail("Eterium de organización", str(response.get("organizacion_proceso_eterium", "No resuelto")))
+				_add_detail("Demanda física", str(response.get("demanda_fisica_eterium", "No resuelta")))
+				_add_detail("Coste temporal", str(response.get("costo_temporal_eterium", "No resuelto")))
+				_add_detail("Eterium estable requerido", str(response.get("eterium_estable_requerido", "No resuelto")), TEAL)
+				_add_detail("Eterium liberado necesario", str(response.get("eterium_liberado_necesario", "No resuelto")), GREEN)
+				_add_detail("Fórmulas del motor", _pretty(response.get("formulas", {})))
+			else:
+				for property_key in ["masa", "carga", "volumen_real", "volumen", "densidad_real", "densidad", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "transparencia", "interaccion", "nota"]:
+					if response.has(property_key):
+						_add_detail(property_key.replace("_", " ").capitalize(), str(response[property_key]))
+			_add_detail("Respuesta íntegra", _pretty(response))
+		return
 	if selected.is_empty():
 		inspector_title.text = "Trazabilidad canónica"
 		_add_detail("Cómo empezar", "Elige una entidad a la izquierda. El grafo muestra sus relaciones disponibles.")
@@ -981,6 +1198,29 @@ func _count_text(key: String) -> String:
 	if errors.has(key):
 		return "!"
 	return str((catalogs.get(key, []) as Array).size())
+
+
+func _spinbox(minimum: float, maximum: float, increment: float, initial: float) -> SpinBox:
+	var spin := SpinBox.new()
+	spin.min_value = minimum
+	spin.max_value = maximum
+	spin.step = increment
+	spin.value = initial
+	spin.allow_greater = false
+	spin.allow_lesser = false
+	spin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spin.add_theme_stylebox_override("normal", _field_style())
+	spin.add_theme_color_override("font_color", TEXT_COLOR)
+	return spin
+
+
+func _labeled_control(title: String, control: Control) -> Control:
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 3)
+	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	column.add_child(_label(title, 9, MUTED))
+	column.add_child(control)
+	return column
 
 
 func _button(text_value: String, action: Callable, active: bool = false) -> Button:
