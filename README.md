@@ -25,7 +25,7 @@ Aplicación nativa en Godot 4.7 para explorar visualmente el canon de Garlia y c
 
 Abre **Procesos**, selecciona un proceso que tenga un Oris activo y revisa la ley y las magnitudes requeridas que muestra la interfaz. Escribe un objeto JSON con las variables físicas que necesita esa ley. Escoge el arquetipo temporal y define k, duración y práctica. El resultado detallará la resolución física, el coste de organización, el coste temporal, el Eterium estable y la liberación necesaria.
 
-Los procesos sin ley, contexto suficiente o vínculo activo mostrarán el estado que devuelva Supabase; la interfaz no sustituye la ley que falta.
+Los procesos sin ley, contexto suficiente o vínculo activo mostrarán el estado que devuelva Supabase; la interfaz no sustituye la ley que falta. El inspector también separa el estado del cálculo del estado/version de la configuración IUM: un cálculo resuelto no convierte una configuración propuesta en canon formal.
 
 ### Montar una organización IUM
 
