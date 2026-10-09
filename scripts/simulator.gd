@@ -75,7 +75,7 @@ class FlowCanvas extends Control:
 			draw_rect(rect, Color("#1b1b2b"), true)
 			draw_rect(rect, tint, false, 1.4)
 			draw_rect(Rect2(rect.position, Vector2(box_width, 4.0)), tint, true)
-			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 9, tint)
+			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 10, tint)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 14, -1, INK)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#bac2de"))
 
@@ -123,7 +123,6 @@ var graph: FlowCanvas
 var inspector_content: VBoxContainer
 var status_label: Label
 var status_dot: ColorRect
-var count_labels: Dictionary = {}
 var selection_button: Button
 var simulate_button: Button
 var process_lab_panel: PanelContainer
@@ -213,7 +212,7 @@ func _build_ui() -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 8)
 	left_panel.add_child(_with_margin(left, 11))
-	left.add_child(_label("CATÁLOGO CANÓNICO", 10, MUTED))
+	left.add_child(_label("CATÁLOGO", 11, MUTED))
 	search_input = LineEdit.new()
 	search_input.placeholder_text = "Buscar nombre, regla o fórmula…"
 	search_input.clear_button_enabled = true
@@ -614,7 +613,7 @@ func _render_catalog() -> void:
 		var active := not selected.is_empty() and str(selected.get("id", "")) == ident
 		var included := selected_ids.has(ident)
 		var row := _button(("✓  " if included else "") + name + "\n" + _item_subtitle(item), Callable(self, "_on_item_pressed").bind(item), active)
-		row.custom_minimum_size = Vector2(0, 56)
+		row.custom_minimum_size = Vector2(0, 58)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		catalog_list.add_child(row)
@@ -1356,7 +1355,7 @@ func _field_style(focused: bool = false) -> StyleBoxFlat:
 func _label(value: String, font_size: int = 12, tint: Color = TEXT_COLOR) -> Label:
 	var label := Label.new()
 	label.text = value
-	label.add_theme_font_size_override("font_size", maxi(font_size, 10))
+	label.add_theme_font_size_override("font_size", maxi(font_size, 11))
 	label.add_theme_color_override("font_color", tint)
 	return label
 
