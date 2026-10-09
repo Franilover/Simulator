@@ -286,7 +286,7 @@ func _build_ui() -> void:
 	center_header.add_child(_label("VISTA ESTRUCTURAL", 9, ACCENT))
 
 	graph = FlowCanvas.new()
-	graph.custom_minimum_size = Vector2(420, 320)
+	graph.custom_minimum_size = Vector2(420, 220)
 	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center.add_child(graph)
@@ -516,7 +516,7 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 		result_panel.visible = true
 		if ok:
 			last_rpc = {"tag": tag, "data": data}
-			result_label.text = JSON.stringify(data, "  ")
+			result_label.text = _rpc_summary(data, tag)
 			_graph_rpc_result(data, tag)
 			inspector_title.text = "Respuesta del motor"
 			_render_inspector()
@@ -884,6 +884,34 @@ func _update_process_requirements() -> void:
 func _show_result(message: String) -> void:
 	result_panel.visible = true
 	result_label.text = message
+
+
+func _rpc_summary(data: Variant, tag: String) -> String:
+	if not data is Dictionary:
+		return str(data)
+	var state := str(data.get("estado", "respuesta recibida"))
+	var lines: Array[String] = ["Estado: " + state]
+	if tag == "rpc:ium":
+		lines.append("Salidas: " + _pretty(data.get("salidas", [])))
+		var candidates: Array = data.get("procesos_candidatos", [])
+		lines.append("Procesos candidatos: " + str(candidates.size()))
+		if not str(data.get("proceso_principal", "")).is_empty():
+			lines.append("Proceso principal: " + str(data.get("proceso_principal")))
+	elif tag == "rpc:eterium":
+		lines.append("Eterium estable: " + str(data.get("eterium_estable_requerido", "no resuelto")))
+		lines.append("Eterium liberado: " + str(data.get("eterium_liberado_necesario", "no resuelto")))
+		lines.append("Demanda física: " + str(data.get("demanda_fisica_eterium", "no resuelta")))
+		lines.append("Coste temporal: " + str(data.get("costo_temporal_eterium", "no resuelto")))
+	else:
+		var props: Array[String] = []
+		for key in ["masa", "carga", "volumen_real", "volumen", "densidad_real", "densidad", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "transparencia", "interaccion"]:
+			if data.has(key):
+				props.append(key.replace("_", " ") + ": " + str(data[key]))
+		if not props.is_empty():
+			lines.append(" · ".join(props))
+		if data.has("nota"):
+			lines.append(str(data["nota"]))
+	return "\n".join(lines)
 
 
 func _graph_rpc_result(data: Variant, tag: String) -> void:
