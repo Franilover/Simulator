@@ -1,29 +1,48 @@
 # Simulator — Laboratorio de procesos
 
-Aplicación nativa hecha con Godot 4.7 para explorar visualmente el canon de Garlia y consultar los catálogos de Supabase.
+Aplicación nativa en Godot 4.7 para explorar visualmente el canon de Garlia y consultar el motor físico de Supabase.
 
-## Qué incluye esta primera versión
+## Laboratorios incluidos
 
-- Catálogos de procesos, Oris, IUMs, partículas TASI, elementos, compuestos, materiales, estructuras, objetos y organismos.
-- Grafo visual contextual para representar entradas, transformaciones, salidas y relaciones registradas.
-- Inspector de cada entidad con sus datos canónicos, propiedades y vínculos disponibles.
-- Cálculo de compuesto desde elementos y de material desde compuestos mediante funciones RPC ya existentes en Supabase.
-- Estado de conexión, contadores y errores de lectura visibles en pantalla.
+- **Procesos:** catálogo canónico, entradas, transformaciones, salidas, conservación, leyes cuantitativas, fórmulas, variables requeridas y modelos de resolución.
+- **Demanda de Eterium:** selecciona un proceso y un Oris realmente vinculado. Introduce el contexto físico como JSON y el simulador consulta la función RPC calcular_requerimiento_eterium_proceso_v1, que integra organización, demanda física, coste temporal y estabilización.
+- **Oris / IUM:** consulta Oris, IUMs y partículas TASI; revisa topologías funcionales, composición de partículas, régimen de Garin y demanda estructural.
+- **Montaje IUM experimental:** selecciona uno o más IUMs y solicita simular_organizacion_ium_v1. El resultado expone salidas funcionales, uniones, procesos candidatos y ambigüedad. Los enlaces se ordenan según la selección y se envían como dirigidos.
+- **Materia:** catálogos de elementos, compuestos, materiales y estructuras; propiedades y relaciones canónicas disponibles.
+- **Cálculo de materia:** simula compuestos desde elementos y materiales desde compuestos mediante simular_compuesto_desde_elementos y simular_material_desde_compuestos.
+- **Objetos y organismos:** consulta objetos físicos, materiales, geometrías, estructuras, sistemas y órganos biológicos.
 
 ## Ejecutar
 
-1. Abre la carpeta del proyecto con Godot 4.7.
-2. Ejecuta el proyecto con F6/F5 o el botón de ejecutar.
-3. Necesita conexión a Internet para consultar el canon actualizado.
+1. Descarga o clona este repositorio.
+2. Abre la carpeta del proyecto con Godot 4.7.
+3. Ejecuta el proyecto con F6/F5 o el botón de ejecutar.
+4. Se requiere conexión a Internet para consultar el canon actualizado.
+
+## Usar el laboratorio
+
+### Calcular una demanda de Eterium
+
+Abre **Procesos**, selecciona un proceso que tenga un Oris activo y revisa la ley y las magnitudes requeridas que muestra la interfaz. Escribe un objeto JSON con las variables físicas que necesita esa ley. Escoge el arquetipo temporal y define k, duración y práctica. El resultado detallará la resolución física, el coste de organización, el coste temporal, el Eterium estable y la liberación necesaria.
+
+Los procesos sin ley, contexto suficiente o vínculo activo mostrarán el estado que devuelva Supabase; la interfaz no sustituye la ley que falta.
+
+### Montar una organización IUM
+
+Abre **Oris / IUM → IUMs**. Selecciona cada IUM del montaje con **Incluir en selección** y usa **Resolver en Supabase**. Las selecciones se conectan en orden mediante uniones dirigidas; el resultado no se guarda y sirve para explorar qué patrones funcionales reconoce el motor.
+
+### Simular materia
+
+En **Materia → Elementos**, selecciona dos o más elementos para pedir un compuesto. En **Compuestos**, selecciona dos o más compuestos para pedir una simulación de material. Las propias RPC identifican estas rutas como simulaciones sin enlaces o estructura real, por lo que sus resultados no se presentan como una creación canónica persistida.
 
 ## Seguridad y límites
 
-La app usa únicamente una clave publishable de Supabase, apropiada para clientes públicos. No incluye service_role, claves secretas ni credenciales de usuario. Los catálogos se consultan en modo lectura; las únicas llamadas POST previstas son RPC de cálculo, no operaciones de escritura. Supabase sigue aplicando sus permisos y políticas RLS.
+La app usa únicamente una clave publishable de Supabase, apta para clientes públicos. No incluye service_role, claves secretas ni credenciales de usuario. Los catálogos se consultan en modo lectura; las operaciones POST son llamadas a funciones RPC de cálculo y no operaciones de escritura. Supabase sigue aplicando sus permisos y políticas RLS.
 
-Si un catálogo no permite lectura o el Data API no lo expone, la interfaz muestra el error correspondiente. Un fallo de acceso no se interpreta como un catálogo canónico vacío. El grafo es una representación de relaciones registradas, no un sustituto de los cálculos del motor.
+Si una tabla o vista no permite lectura por el Data API, la interfaz muestra errores en lugar de asumir que el canon está vacío. Los grafos son representaciones visuales de relaciones registradas, no un sustituto de las funciones de cálculo.
 
 ## Estructura
 
 - scenes/main.tscn: escena principal.
-- scripts/simulator.gd: interfaz, grafo, inspector y solicitudes.
+- scripts/simulator.gd: interfaz, grafos, inspector y coordinación de solicitudes.
 - scripts/supabase_config.gd: URL y clave publishable del proyecto.
