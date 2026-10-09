@@ -457,7 +457,6 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 			errors[key] = message if not message.is_empty() else "Respuesta no reconocida."
 			push_warning("Catálogo " + key + ": " + str(errors[key]))
 		_update_status()
-		_refresh_metrics()
 		_render_catalog()
 		_render_graph()
 		_render_inspector()
@@ -548,7 +547,6 @@ func _set_mode(mode: String) -> void:
 	_render_catalog()
 	_render_graph()
 	_render_inspector()
-	_refresh_metrics()
 	_refresh_actions()
 
 
@@ -1265,25 +1263,6 @@ func _pretty(value: Variant) -> String:
 		return encoded.substr(0, 697) + "…" if encoded.length() > 700 else encoded
 	var result := str(value)
 	return result if not result.is_empty() else "Sin dato registrado"
-
-
-func _refresh_metrics() -> void:
-	if not is_instance_valid(mode_tabs):
-		return
-	for key in ["procesos", "oris", "iums", "particulas", "organismos"]:
-		count_labels[key].text = _count_text(key)
-	var sum := 0
-	for key in ["elementos", "compuestos", "materiales", "estructuras"]:
-		sum += (catalogs.get(key, []) as Array).size()
-	count_labels["materia"].text = str(sum) if sum > 0 else "—"
-
-
-func _count_text(key: String) -> String:
-	if not finished.get(key, false):
-		return "—"
-	if errors.has(key):
-		return "!"
-	return str((catalogs.get(key, []) as Array).size())
 
 
 func _spinbox(minimum: float, maximum: float, increment: float, initial: float) -> SpinBox:
