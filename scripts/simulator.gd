@@ -53,7 +53,7 @@ class FlowCanvas extends Control:
 			box_width = 178.0
 		var full_width := box_width * float(count) + gap * float(count - 1)
 		var start_x := maxf(margin_x, (size.x - full_width) * 0.5)
-		var box_height := 136.0
+		var box_height := 144.0
 		var start_y := maxf(52.0, (size.y - box_height) * 0.5)
 
 		for index in range(count):
@@ -76,8 +76,8 @@ class FlowCanvas extends Control:
 			draw_rect(rect, tint, false, 1.4)
 			draw_rect(Rect2(rect.position, Vector2(box_width, 4.0)), tint, true)
 			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 9, tint)
-			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 13, -1, INK)
-			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 10, -1, Color("#a6adc8"))
+			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 14, -1, INK)
+			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#bac2de"))
 		draw_string(ThemeDB.fallback_font, Vector2(18, size.y - 14), "%02d ETAPAS VISUALIZADAS" % count, HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 9, SUBTLE)
 
 	func _short(value: String, length: int) -> String:
@@ -157,14 +157,14 @@ func _build_ui() -> void:
 
 	var outer := MarginContainer.new()
 	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	outer.add_theme_constant_override("margin_left", 18)
-	outer.add_theme_constant_override("margin_right", 18)
-	outer.add_theme_constant_override("margin_top", 14)
-	outer.add_theme_constant_override("margin_bottom", 12)
+	outer.add_theme_constant_override("margin_left", 16)
+	outer.add_theme_constant_override("margin_right", 16)
+	outer.add_theme_constant_override("margin_top", 12)
+	outer.add_theme_constant_override("margin_bottom", 10)
 	add_child(outer)
 
 	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 11)
+	page.add_theme_constant_override("separation", 8)
 	outer.add_child(page)
 
 	var header := HBoxContainer.new()
@@ -174,16 +174,15 @@ func _build_ui() -> void:
 	var identity := VBoxContainer.new()
 	identity.add_theme_constant_override("separation", 2)
 	header.add_child(identity)
-	identity.add_child(_label("GARLIA  /  LABORATORIO DE SISTEMAS", 10, ACCENT))
-	identity.add_child(_label("Simulator", 28, TEXT_COLOR))
-	identity.add_child(_label("Procesos · materia · organización · biología", 12, MUTED))
+	identity.add_child(_label("GARLIA  /  LABORATORIO", 11, ACCENT))
+	identity.add_child(_label("Simulator", 25, TEXT_COLOR))
 
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(spacer)
 
 	var connection_panel := _panel()
-	connection_panel.custom_minimum_size = Vector2(224, 0)
+	connection_panel.custom_minimum_size = Vector2(190, 0)
 	header.add_child(connection_panel)
 	var connection_row := HBoxContainer.new()
 	connection_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -233,7 +232,7 @@ func _build_ui() -> void:
 	page.add_child(body)
 
 	var left_panel := _panel()
-	left_panel.custom_minimum_size = Vector2(250, 0)
+	left_panel.custom_minimum_size = Vector2(270, 0)
 	body.add_child(left_panel)
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 8)
@@ -286,7 +285,7 @@ func _build_ui() -> void:
 	center_header.add_child(_label("VISTA ESTRUCTURAL", 9, ACCENT))
 
 	graph = FlowCanvas.new()
-	graph.custom_minimum_size = Vector2(420, 220)
+	graph.custom_minimum_size = Vector2(420, 250)
 	graph.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	graph.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	center.add_child(graph)
@@ -380,7 +379,7 @@ func _build_ui() -> void:
 	result_content.add_child(result_label)
 
 	var right_panel := _panel()
-	right_panel.custom_minimum_size = Vector2(288, 0)
+	right_panel.custom_minimum_size = Vector2(300, 0)
 	body.add_child(right_panel)
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 7)
@@ -1412,7 +1411,7 @@ func _field_style(focused: bool = false) -> StyleBoxFlat:
 func _label(value: String, font_size: int = 12, tint: Color = TEXT_COLOR) -> Label:
 	var label := Label.new()
 	label.text = value
-	label.add_theme_font_size_override("font_size", font_size)
+	label.add_theme_font_size_override("font_size", maxi(font_size, 10))
 	label.add_theme_color_override("font_color", tint)
 	return label
 
