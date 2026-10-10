@@ -43,6 +43,17 @@ class FlowCanvas extends Control:
 			draw_string(ThemeDB.fallback_font, Vector2(22, size.y * 0.52), "Selecciona una entidad para inspeccionar sus relaciones.", HORIZONTAL_ALIGNMENT_LEFT, size.x - 44, 14, INK)
 			return
 
+		var visual_type := str(nodes_data[0].get("visual_type", ""))
+		if visual_type == "particula":
+			_draw_particula(nodes_data[0])
+			return
+		if visual_type == "ium":
+			_draw_ium(nodes_data[0])
+			return
+		if visual_type == "oris":
+			_draw_oris(nodes_data[0])
+			return
+
 		var count := nodes_data.size()
 		var gap := 14.0
 		var margin_x := 18.0
@@ -77,6 +88,185 @@ class FlowCanvas extends Control:
 			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 10, tint)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 14, -1, INK)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#c5d0e3"))
+
+	func _draw_particula(data: Dictionary) -> void:
+		var formula := str(data.get("formula", "")).to_upper()
+		var letters: Array[String] = []
+		for i in range(formula.length()):
+			var letter := formula.substr(i, 1)
+			if letter in ["A", "T", "S", "I"]:
+				letters.append(letter)
+		var radius := minf(size.x, size.y) * 0.29
+		var center := Vector2(size.x * 0.5, size.y * 0.46)
+		var palette := {
+			"A": [Color("#353d59"), Color("#6576a8"), Color("#e3e9ff")],
+			"T": [Color("#29344d"), Color("#52658f"), Color("#d8e2ff")],
+			"S": [Color("#202738"), Color("#414f73"), Color("#c8d4f4")],
+			"I": [Color("#252b43"), Color("#4b5b88"), Color("#d3dcff")]
+		}
+		if letters.size() <= 1:
+			var letter := letters[0] if not letters.is_empty() else ""
+			var colors: Array = palette.get(letter, [Color("#171e2a"), Color("#56647b"), INK])
+			draw_circle(center, radius, colors[0])
+			draw_arc(center, radius, 0.0, TAU, 64, colors[1], maxf(1.2, radius * 0.05), true)
+			if not letter.is_empty():
+				draw_string(ThemeDB.fallback_font, center + Vector2(-radius * 0.18, radius * 0.15), letter, HORIZONTAL_ALIGNMENT_CENTER, radius * 0.36, int(radius * 0.48), colors[2])
+		else:
+			for i in range(letters.size()):
+				var a0 := -PI / 2.0 + float(i) * TAU / 3.0
+				var a1 := a0 + TAU / 3.0
+				var polygon := PackedVector2Array([center])
+				for step in range(17):
+					var a := lerpf(a0, a1, float(step) / 16.0)
+					polygon.append(center + Vector2(cos(a), sin(a)) * radius)
+				draw_colored_polygon(polygon, palette[letters[i]][0])
+				draw_arc(center, radius, a0, a1, 24, palette[letters[i]][1], maxf(1.2, radius * 0.05), true)
+				var mid := (a0 + a1) * 0.5
+				var label_pos := center + Vector2(cos(mid), sin(mid)) * radius * 0.58
+				draw_string(ThemeDB.fallback_font, label_pos + Vector2(-5, 5), letters[i], HORIZONTAL_ALIGNMENT_CENTER, 10, int(radius * 0.38), palette[letters[i]][2])
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 28), str(data.get("title", "Partícula")), HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 17, INK)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 9), formula, HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 12, ACCENT)
+
+	func _draw_ium(data: Dictionary) -> void:
+		var center := Vector2(size.x * 0.5, size.y * 0.48)
+		var radius := minf(size.x * 0.31, size.y * 0.39)
+		var particles: Array = data.get("particles", [])
+		var geometry := str(data.get("geometry", "radial"))
+		var count := particles.size()
+		var points: Array[Vector2] = []
+		var particle_radius := radius * 0.23
+		for i in range(count):
+			var t := float(i) / float(maxi(1, count - 1))
+			var p := center
+			match geometry:
+				"puntual":
+					var a := -PI / 2.0 + float(i) * TAU / float(maxi(1, count))
+					p = center + Vector2(cos(a), sin(a)) * radius * 0.22
+					particle_radius = radius * (0.25 if count <= 3 else 0.19)
+				"lineal":
+					p = center + Vector2((t - 0.5) * radius * 1.5, 0)
+					particle_radius = minf(radius * 0.27, radius * 0.75 / float(maxi(1, count - 1)))
+				"flexible":
+					p = center + Vector2((t - 0.5) * radius * 1.55, -sin(t * TAU) * radius * 0.28)
+					particle_radius = minf(radius * 0.26, radius * 0.78 / float(maxi(1, count - 1)))
+				"angular":
+					p = center + Vector2((t - 0.5) * radius * 1.55, radius * 0.48 - (1.0 - absf(2.0 * t - 1.0)) * radius)
+					particle_radius = minf(radius * 0.27, radius * 0.78 / float(maxi(1, count - 1)))
+				_:
+					var a := -PI / 2.0 + float(i) * TAU / float(maxi(1, count))
+					var orbit := radius * (0.58 if geometry == "red" else 0.66)
+					p = center + Vector2(cos(a), sin(a)) * orbit
+					particle_radius = minf(radius * 0.24, orbit * sin(PI / float(maxi(1, count))) * 0.9)
+			points.append(p)
+		# Armazón geométrico bajo las partículas.
+		var frame_color := Color("#7286bf")
+		match geometry:
+			"puntual":
+				draw_arc(center, radius * 0.9, 0.0, TAU, 64, Color("#7286bf", 0.45), 1.2, true)
+			"lineal":
+				if points.size() > 1:
+					draw_line(points[0], points[points.size() - 1], frame_color, 2.0, true)
+			"red":
+				for i in range(points.size()):
+					for j in range(i + 1, points.size()):
+						draw_line(points[i], points[j], Color("#7286bf", 0.65), 1.2, true)
+			"radial":
+				draw_arc(center, radius * 0.66, 0.0, TAU, 64, Color("#7286bf", 0.75), 1.3, true)
+				for p in points:
+					draw_line(center, p, Color("#7286bf", 0.65), 1.0, true)
+			"flexible", "angular":
+				for i in range(points.size() - 1):
+					draw_line(points[i], points[i + 1], frame_color, 1.7, true)
+		for i in range(count):
+			var item: Dictionary = particles[i]
+			var formula := str(item.get("formula", ""))
+			var letters: Array[String] = []
+			for j in range(formula.length()):
+				var letter := formula.substr(j, 1).to_upper()
+				if letter in ["A", "T", "S", "I"]:
+					letters.append(letter)
+			var p := points[i]
+			var r := maxf(5.0, particle_radius)
+			if letters.size() >= 3:
+				for k in range(3):
+					var a0 := -PI / 2.0 + float(k) * TAU / 3.0
+					var poly := PackedVector2Array([p])
+					for step in range(9):
+						var a := a0 + float(step) / 8.0 * TAU / 3.0
+						poly.append(p + Vector2(cos(a), sin(a)) * r)
+					draw_colored_polygon(poly, Color("#353d59") if letters[k] == "A" else (Color("#29344d") if letters[k] == "T" else (Color("#202738") if letters[k] == "S" else Color("#252b43"))))
+			else:
+				draw_circle(p, r, Color("#353d59"))
+			draw_arc(p, r, 0.0, TAU, 24, Color("#9baeff"), 1.0, true)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 28), str(data.get("title", "IUM")), HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 17, INK)
+		draw_string(ThemeDB.fallback_font, Vector2(16, size.y - 9), geometry.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 32, 12, ACCENT)
+
+	func _draw_oris(data: Dictionary) -> void:
+		var topology_id := str(data.get("topology_id", ""))
+		var topology := str(data.get("topology", "Topología"))
+		var graph_nodes: Array = data.get("oris_nodes", [])
+		var unions: Array = data.get("oris_unions", [])
+		var center := Vector2(size.x * 0.5, size.y * 0.48)
+		var w := minf(size.x - 48.0, 520.0)
+		var h := minf(size.y - 72.0, 300.0)
+		var left := (size.x - w) * 0.5
+		var top := maxf(26.0, (size.y - h) * 0.5)
+		var pos := {}
+		match topology_id:
+			"T01":
+				pos = {"nucleo": Vector2(left + w * 0.72, top + h * 0.5), "a": Vector2(left + w * 0.28, top + h * 0.27), "b": Vector2(left + w * 0.28, top + h * 0.73)}
+			"T02":
+				pos = {"a": Vector2(left + w * 0.12, top + h * 0.2), "nucleo": Vector2(left + w * 0.5, top + h * 0.2), "b": Vector2(left + w * 0.88, top + h * 0.2), "d": Vector2(left + w * 0.88, top + h * 0.8), "c": Vector2(left + w * 0.5, top + h * 0.8)}
+			"T03":
+				pos = {"a": Vector2(left + w * 0.12, top + h * 0.5), "nucleo": Vector2(left + w * 0.42, top + h * 0.5), "b": Vector2(left + w * 0.78, top + h * 0.22), "c": Vector2(left + w * 0.68, top + h * 0.75), "d": Vector2(left + w * 0.9, top + h * 0.48)}
+			"T04", "T07":
+				pos = {"a": Vector2(left + w * 0.2, top + h * 0.2), "b": Vector2(left + w * 0.63, top + h * 0.2), "nucleo": Vector2(left + w * 0.63, top + h * 0.8), "c": Vector2(left + w * 0.2, top + h * 0.8), "d": Vector2(left + w * 0.9, top + h * 0.8)}
+			"T05":
+				pos = {"a": Vector2(left + w * 0.3, top + h * 0.22), "b": Vector2(left + w * 0.7, top + h * 0.22), "nucleo": Vector2(left + w * 0.5, top + h * 0.5), "c": Vector2(left + w * 0.5, top + h * 0.82)}
+			"T06":
+				pos = {"a": Vector2(left + w * 0.15, top + h * 0.22), "b": Vector2(left + w * 0.15, top + h * 0.78), "nucleo": Vector2(left + w * 0.5, top + h * 0.5), "c": Vector2(left + w * 0.85, top + h * 0.5)}
+			_:
+				pos = {"nucleo": center}
+				for i in range(graph_nodes.size()):
+					var angle := -PI / 2.0 + float(i) * TAU / float(maxi(1, graph_nodes.size()))
+					pos[str(graph_nodes[i].get("posicion", ""))] = center + Vector2(cos(angle), sin(angle)) * minf(w, h) * 0.32
+		for union in unions:
+			var from_key := str(union.get("origen", ""))
+			var to_key := str(union.get("destino", ""))
+			if not pos.has(from_key) or not pos.has(to_key):
+				continue
+			var a: Vector2 = pos[from_key]
+			var b: Vector2 = pos[to_key]
+			var direction := (b - a).normalized()
+			var start := a + direction * 30.0
+			var finish := b - direction * 34.0
+			var kind := str(union.get("tipo_union", "dirigida"))
+			var line_color := Color("#7185bd")
+			draw_line(start, finish, line_color, 2.0 if kind == "reciproca" else 1.5, true)
+			if kind != "acoplamiento":
+				var normal := Vector2(-direction.y, direction.x)
+				var tip := finish
+				draw_colored_polygon(PackedVector2Array([tip, tip - direction * 9.0 + normal * 4.0, tip - direction * 9.0 - normal * 4.0]), line_color)
+			if kind == "reciproca":
+				var normal := Vector2(-direction.y, direction.x)
+				draw_colored_polygon(PackedVector2Array([start, start + direction * 9.0 + normal * 4.0, start + direction * 9.0 - normal * 4.0]), line_color)
+			if kind == "acoplamiento":
+				for t in range(1, 8, 2):
+					var p := start.lerp(finish, float(t) / 8.0)
+					draw_circle(p, 1.8, line_color)
+		for node in graph_nodes:
+			var key := str(node.get("posicion", ""))
+			if not pos.has(key):
+				continue
+			var p: Vector2 = pos[key]
+			var is_core := key == "nucleo"
+			var rr := 29.0 if is_core else 24.0
+			draw_circle(p, rr + 3.0, Color("#0e131d"))
+			draw_circle(p, rr, Color("#1b2435"))
+			draw_arc(p, rr, 0.0, TAU, 48, Color("#a9b8ff") if is_core else Color("#6576a8"), 1.6 if is_core else 1.0, true)
+			var label := str(node.get("ium", node.get("ium_id", "IUM")))
+			draw_string(ThemeDB.fallback_font, p + Vector2(-rr, rr + 15), _short(label, 13), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0, 10, INK)
+		draw_string(ThemeDB.fallback_font, Vector2(12, 18), (topology_id + " · " + topology).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 10, ACCENT)
 
 	func _short(value: String, length: int) -> String:
 		if value.length() <= length:
@@ -363,7 +553,9 @@ func _load_catalogues() -> void:
 	_get_relation("process_law_variables", "/rest/v1/proceso_ley_variables_v1?select=ley_id,variable_clave,obligatorio,magnitudes_fisicas(clave,nombre,simbolo,dimension)&limit=1500")
 	_get_relation("ium_config", "/rest/v1/iums_configuraciones_funcionales?select=ium_id,patron_organizacion,topologia_acoplamiento,regimen_garin,requiere_coherencia_eterium,descripcion,modo_acoplamiento_garin,dependencia_eterium,etapa_eterium&limit=100")
 	_get_relation("ium_outputs", "/rest/v1/ium_salidas_funcionales?select=ium_id,clave,nombre,tipo_salida,es_principal,orden&es_principal=eq.true&limit=100")
-	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=ium_id,cantidad,particulas(nombre,orden)&limit=300")
+	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=ium_id,cantidad,particulas(nombre,formula,orden)&limit=300")
+	_get_relation("ium_geometry", "/rest/v1/v_iums_geometria_canonica_v1?select=ium_id,geometria,geometria_nombre,geometria_familia,dimensionalidad&limit=200")
+	_get_relation("oris_graph", "/rest/v1/v_oris_grafo_canonico?select=oris_id,topologia_id,topologia,nodos,uniones&limit=100")
 	_get_relation("element_particles", "/rest/v1/elemento_particulas?select=elemento_id,capa,cantidad,particulas(nombre,orden)&limit=1000")
 	_get_relation("compound_elements", "/rest/v1/compuesto_elementos?select=compuesto_id,cantidad,proporcion_molar,rol,orden_estructura,elementos(nombre,simbolo)&limit=1000")
 	_get_relation("material_components", "/rest/v1/v_frontend_worldbuilder_material_componentes?select=material_id,material_nombre,componente_tipo,componente_nombre,cantidad,proporcion_min,proporcion_max,unidad,rol,orden&limit=1000")
@@ -1007,6 +1199,17 @@ func _render_graph() -> void:
 				{"role": "SALIDA", "title": "Salida", "detail": str(selected.get("salida", "No descrita en el registro")), "color": GREEN}
 			]
 		"oris":
+			var canonical_graph := _related_row("oris_graph", "oris_id", str(selected.get("id", "")))
+			if not canonical_graph.is_empty() and canonical_graph.get("nodos", []) is Array:
+				graph.set_graph([{
+					"visual_type": "oris",
+					"title": str(selected.get("nombre", "Oris")),
+					"topology_id": str(canonical_graph.get("topologia_id", "")),
+					"topology": str(canonical_graph.get("topologia", "")),
+					"oris_nodes": canonical_graph.get("nodos", []),
+					"oris_unions": canonical_graph.get("uniones", [])
+				}], "")
+				return
 			var demand := _related_row("oris_demanda", "oris_id", str(selected.get("id", "")))
 			var demand_text := "Demanda estructural no disponible"
 			if not demand.is_empty():
@@ -1019,7 +1222,25 @@ func _render_graph() -> void:
 				{"role": "EJECUCIÓN", "title": "Garin", "detail": "Infraestructura espacial de ejecución", "color": LAVENDER}
 			]
 		"iums":
-			var part_text := _related_text("ium_particles", "ium_id", "nombre", "particulas", str(selected.get("id", "")))
+			var ium_id := str(selected.get("id", ""))
+			var particle_visuals: Array[Dictionary] = []
+			for row in _related_rows("ium_particles", "ium_id", ium_id):
+				var nested: Variant = row.get("particulas", {})
+				if nested is Array and not nested.is_empty():
+					nested = nested[0]
+				if nested is Dictionary:
+					var amount := mini(12, maxi(1, int(row.get("cantidad", 1))))
+					for particle_index in range(amount):
+						particle_visuals.append({"nombre": str(nested.get("nombre", "Partícula")), "formula": str(nested.get("formula", ""))})
+			var geometry_row := _related_row("ium_geometry", "ium_id", ium_id)
+			var geometry_name := str(geometry_row.get("geometria", "radial"))
+			graph.set_graph([{
+				"visual_type": "ium",
+				"title": str(selected.get("nombre", "IUM")),
+				"particles": particle_visuals,
+				"geometry": geometry_name
+			}], "")
+			var part_text := _related_text("ium_particles", "ium_id", "nombre", "particulas", ium_id)
 			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
 			nodes = [
 				{"role": "PARTÍCULAS", "title": str(selected.get("nombre", "IUM")), "detail": part_text if not part_text.is_empty() else str(selected.get("detalle", "Composición no disponible")), "color": LAVENDER},
@@ -1028,6 +1249,12 @@ func _render_graph() -> void:
 				{"role": "COHERENCIA", "title": "Eterium", "detail": str(conf.get("dependencia_eterium", "Dependencia según el canon")), "color": TEAL}
 			]
 		"particulas":
+			graph.set_graph([{
+				"visual_type": "particula",
+				"title": str(selected.get("nombre", "Partícula")),
+				"formula": str(selected.get("formula", ""))
+			}], "")
+			return
 			nodes = [
 				{"role": "IDENTIDAD TASI", "title": str(selected.get("nombre", "Partícula")), "detail": str(selected.get("formula", "Sin fórmula indicada")), "color": YELLOW},
 				{"role": "FUNCIÓN", "title": str(selected.get("funcion_canonica", "Función canónica")), "detail": str(selected.get("capa_canonica", "Capa no indicada")), "color": ACCENT},
