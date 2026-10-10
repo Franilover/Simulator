@@ -596,10 +596,15 @@ var selected: Dictionary = {}
 var focused_ium: Dictionary = {}
 var selected_ids: Array[String] = []
 var current_mode := "Procesos"
+var workspace_mode := "Wiki"
 var current_key := "procesos"
+var sandbox_simulation_id := ""
+var sandbox_entity_id := ""
+var sandbox_object: Dictionary = {}
 var last_rpc: Dictionary = {}
 var success_count := 0
 
+var workspace_tabs: HBoxContainer
 var mode_tabs: HBoxContainer
 var subnav: HBoxContainer
 var catalog_list: VBoxContainer
@@ -620,6 +625,14 @@ var process_practice_input: SpinBox
 var process_context_input: TextEdit
 var process_requirements_label: Label
 var process_run_button: Button
+var sandbox_panel: PanelContainer
+var sandbox_object_option: OptionButton
+var sandbox_process_option: OptionButton
+var sandbox_temperature_input: SpinBox
+var sandbox_status_label: Label
+var sandbox_prepare_button: Button
+var sandbox_evaluate_button: Button
+var sandbox_heat_button: Button
 var result_panel: PanelContainer
 var result_label: Label
 var graph_title: Label
@@ -629,6 +642,7 @@ var inspector_title: Label
 func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_ui()
+	_refresh_workspace_tabs()
 	_set_mode("Procesos")
 	_load_catalogues()
 
@@ -651,6 +665,9 @@ func _build_ui() -> void:
 	page.add_theme_constant_override("separation", 12)
 	outer.add_child(page)
 
+	workspace_tabs = HBoxContainer.new()
+	workspace_tabs.add_theme_constant_override("separation", 8)
+	page.add_child(workspace_tabs)
 	mode_tabs = HBoxContainer.new()
 	mode_tabs.add_theme_constant_override("separation", 8)
 	page.add_child(mode_tabs)
@@ -800,6 +817,55 @@ func _build_ui() -> void:
 	process_run_button = _button("Calcular demanda", Callable(self, "_run_process_eterium"), true)
 	process_actions.add_child(process_run_button)
 
+	sandbox_panel = _panel()
+	sandbox_panel.visible = false
+	center.add_child(sandbox_panel)
+	var sandbox_content := VBoxContainer.new()
+	sandbox_content.add_theme_constant_override("separation", 7)
+	sandbox_panel.add_child(_with_margin(sandbox_content, 9))
+	sandbox_content.add_child(_label("PRUEBAS DE SANDBOX", 12, TEAL))
+	var sandbox_description := _label("Crea una copia experimental del objeto y evalúa procesos sobre su estado. No modifica el objeto canónico.", 10, MUTED)
+	sandbox_description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sandbox_content.add_child(sandbox_description)
+	var sandbox_select_row := HBoxContainer.new()
+	sandbox_select_row.add_theme_constant_override("separation", 8)
+	sandbox_content.add_child(sandbox_select_row)
+	var sandbox_object_column := VBoxContainer.new()
+	sandbox_object_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sandbox_select_row.add_child(sandbox_object_column)
+	sandbox_object_column.add_child(_label("OBJETO", 9, MUTED))
+	sandbox_object_option = OptionButton.new()
+	sandbox_object_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sandbox_object_option.add_theme_stylebox_override("normal", _field_style())
+	sandbox_object_option.add_theme_color_override("font_color", TEXT_COLOR)
+	sandbox_object_column.add_child(sandbox_object_option)
+	var sandbox_process_column := VBoxContainer.new()
+	sandbox_process_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sandbox_select_row.add_child(sandbox_process_column)
+	sandbox_process_column.add_child(_label("PROCESO", 9, MUTED))
+	sandbox_process_option = OptionButton.new()
+	sandbox_process_option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sandbox_process_option.add_theme_stylebox_override("normal", _field_style())
+	sandbox_process_option.add_theme_color_override("font_color", TEXT_COLOR)
+	sandbox_process_column.add_child(sandbox_process_option)
+	var sandbox_temperature_row := HBoxContainer.new()
+	sandbox_temperature_row.add_theme_constant_override("separation", 8)
+	sandbox_content.add_child(sandbox_temperature_row)
+	sandbox_temperature_input = _spinbox(-273.15, 1000000000.0, 1.0, 293.15)
+	sandbox_temperature_row.add_child(_labeled_control("Temperatura inicial (uΘ)", sandbox_temperature_input))
+	var sandbox_actions := HBoxContainer.new()
+	sandbox_actions.add_theme_constant_override("separation", 8)
+	sandbox_content.add_child(sandbox_actions)
+	sandbox_prepare_button = _button("Preparar objeto", Callable(self, "_sandbox_prepare_object"), true)
+	sandbox_actions.add_child(sandbox_prepare_button)
+	sandbox_evaluate_button = _button("Evaluar proceso", Callable(self, "_sandbox_evaluate_process"), true)
+	sandbox_actions.add_child(sandbox_evaluate_button)
+	sandbox_heat_button = _button("Aplicar temperatura", Callable(self, "_sandbox_apply_temperature"), false)
+	sandbox_actions.add_child(sandbox_heat_button)
+	sandbox_status_label = _label("Sin experimento preparado.", 10, MUTED)
+	sandbox_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	sandbox_content.add_child(sandbox_status_label)
+
 	result_panel = _panel()
 	result_panel.visible = false
 	result_panel.custom_minimum_size.y = 108
@@ -848,6 +914,8 @@ func _load_catalogues() -> void:
 	_get_relation("process_laws", "/rest/v1/proceso_leyes_cuantitativas_v1?select=id,proceso_id,clave,modelo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
 	_get_relation("process_models", "/rest/v1/proceso_modelos_resolucion_v1?select=id,proceso_id,clave,modo,formula,magnitudes_requeridas,descripcion,estado&limit=1000")
 	_get_relation("process_law_variables", "/rest/v1/proceso_ley_variables_v1?select=ley_id,variable_clave,obligatorio,magnitudes_fisicas(clave,nombre,simbolo,dimension)&limit=1500")
+	_get_relation("process_ium_config", "/rest/v1/v_proceso_configuracion_ium_actual_v1?select=configuracion_id,proceso_id,proceso,oris_principal_id,oris_principal,configuracion,version,estado,topologia_id,topologia,n_iums,n_uniones,demanda_eterium_organizacion,iums,oris_compatibles,descripcion,fundamento&limit=1000")
+	_get_relation("process_ium_flow", "/rest/v1/v_proceso_configuracion_ium_flujo_v1?select=configuracion_id,proceso,orden_origen,ium_origen_id,ium_origen,salida_origen,participacion_origen,orden_destino,ium_destino_id,ium_destino,participacion_destino,tipo_union,orden_union&limit=3000")
 	_get_relation("ium_config", "/rest/v1/iums_configuraciones_funcionales?select=ium_id,patron_organizacion,topologia_acoplamiento,regimen_garin,requiere_coherencia_eterium,descripcion,modo_acoplamiento_garin,dependencia_eterium,etapa_eterium&limit=100")
 	_get_relation("ium_outputs", "/rest/v1/ium_salidas_funcionales?select=ium_id,clave,nombre,tipo_salida,es_principal,orden&es_principal=eq.true&limit=100")
 	_get_relation("ium_particles", "/rest/v1/iums_particulas?select=id,ium_id,particula_id,cantidad,particulas(id,nombre,formula)&order=id.asc&limit=1000")
@@ -920,6 +988,7 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 			push_warning("Catálogo " + key + ": " + str(errors[key]))
 		_update_status()
 		_render_catalog()
+		_populate_sandbox_options()
 		_render_graph()
 		_render_inspector()
 		return
@@ -936,9 +1005,57 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 		_render_graph()
 		_render_inspector()
 		_refresh_process_oris()
+		_populate_sandbox_options()
 		_refresh_actions()
 		return
 
+	if tag == "rpc:sandbox_create":
+		if not ok:
+			_set_sandbox_status("No se pudo crear la sesión: " + message, RED)
+			return
+		sandbox_simulation_id = _rpc_scalar_id(data)
+		if sandbox_simulation_id.is_empty():
+			_set_sandbox_status("Supabase no devolvió el identificador de Sandbox.", RED)
+			return
+		var object_id := str(sandbox_object.get("id", ""))
+		_request("rpc:sandbox_add", "/rest/v1/rpc/agregar_entidad_sandbox", HTTPClient.METHOD_POST, {
+			"p_simulacion_id": sandbox_simulation_id,
+			"p_entidad_tipo": "item",
+			"p_entidad_origen_id": object_id,
+			"p_estado_inicial": {"propiedades": {"temperatura": sandbox_temperature_input.value}, "origen": "Simulator", "modo": "experimental"}
+		})
+		return
+	if tag == "rpc:sandbox_add":
+		if not ok:
+			_set_sandbox_status("La sesión existe, pero no se pudo preparar el objeto: " + message, RED)
+			return
+		sandbox_entity_id = _rpc_scalar_id(data)
+		if sandbox_entity_id.is_empty():
+			_set_sandbox_status("No se recibió el identificador de la entidad experimental.", RED)
+			return
+		_set_sandbox_status("Objeto preparado en Sandbox · temperatura inicial " + str(sandbox_temperature_input.value) + " uΘ. El objeto canónico permanece intacto.", GREEN)
+		_refresh_actions()
+		return
+	if tag == "rpc:sandbox_heat":
+		if ok:
+			_set_sandbox_status("Estado térmico actualizado en la copia experimental. " + _pretty(data), GREEN)
+		else:
+			_set_sandbox_status("No se aplicó el cambio térmico: " + message, RED)
+		return
+	if tag == "rpc:sandbox_process":
+		if ok:
+			last_rpc = {"tag": tag, "data": data}
+			result_panel.visible = true
+			result_label.text = _pretty(data)
+			_set_sandbox_status("Evaluación completada. Revisa condiciones, balances y autorización devueltos por el motor.", GREEN)
+			graph.set_graph([
+				{"role": "OBJETO", "title": str(sandbox_object.get("nombre", "Objeto")), "detail": "Copia experimental · " + sandbox_entity_id, "color": ORANGE},
+				{"role": "PROCESO", "title": str(sandbox_process_option.get_item_text(sandbox_process_option.get_selected())), "detail": "Evaluación canónica de condiciones y balances", "color": ACCENT},
+				{"role": "MOTOR", "title": str(data.get("estado", "Respuesta recibida")) if data is Dictionary else "Respuesta recibida", "detail": "No se da por aplicada una transformación si el motor no la autoriza.", "color": TEAL}
+			], "EVALUACIÓN DE PROCESO · SANDBOX")
+		else:
+			_set_sandbox_status("El motor rechazó la evaluación: " + message, RED)
+		return
 	if tag.begins_with("rpc:"):
 		result_panel.visible = true
 		if ok:
@@ -986,6 +1103,147 @@ func _reload_catalogues() -> void:
 	result_panel.visible = false
 	_set_status("Actualizando catálogos…", YELLOW)
 	_load_catalogues()
+
+
+func _set_workspace_mode(mode: String) -> void:
+	workspace_mode = mode
+	last_rpc.clear()
+	result_panel.visible = false
+	_refresh_workspace_tabs()
+	_refresh_mode_tabs()
+	_render_catalog()
+	_render_graph()
+	_render_inspector()
+	_refresh_actions()
+
+
+func _refresh_workspace_tabs() -> void:
+	_clear(workspace_tabs)
+	for mode in ["Wiki", "Sandbox"]:
+		workspace_tabs.add_child(_button(mode, Callable(self, "_set_workspace_mode").bind(mode), workspace_mode == mode))
+
+
+func _populate_sandbox_options() -> void:
+	if not is_instance_valid(sandbox_object_option) or not is_instance_valid(sandbox_process_option):
+		return
+	var previous_object := str(sandbox_object_option.get_item_metadata(sandbox_object_option.get_selected())) if sandbox_object_option.item_count > 0 and sandbox_object_option.get_selected() >= 0 else ""
+	var previous_process := str(sandbox_process_option.get_item_metadata(sandbox_process_option.get_selected())) if sandbox_process_option.item_count > 0 and sandbox_process_option.get_selected() >= 0 else ""
+	sandbox_object_option.clear()
+	for object_row in catalogs.get("objetos", []):
+		if object_row is Dictionary:
+			sandbox_object_option.add_item(str(object_row.get("nombre", "Objeto")))
+			sandbox_object_option.set_item_metadata(sandbox_object_option.item_count - 1, str(object_row.get("id", "")))
+	if sandbox_object_option.item_count > 0:
+		var found_object := false
+		for i in range(sandbox_object_option.item_count):
+			if str(sandbox_object_option.get_item_metadata(i)) == previous_object:
+				sandbox_object_option.select(i)
+				found_object = true
+				break
+		if not found_object:
+			sandbox_object_option.select(0)
+	sandbox_process_option.clear()
+	for process_row in catalogs.get("procesos", []):
+		if process_row is Dictionary:
+			sandbox_process_option.add_item(str(process_row.get("nombre", "Proceso")))
+			sandbox_process_option.set_item_metadata(sandbox_process_option.item_count - 1, str(process_row.get("id", "")))
+	if sandbox_process_option.item_count > 0:
+		var found_process := false
+		for i in range(sandbox_process_option.item_count):
+			if str(sandbox_process_option.get_item_metadata(i)) == previous_process:
+				sandbox_process_option.select(i)
+				found_process = true
+				break
+		if not found_process:
+			sandbox_process_option.select(0)
+
+
+func _set_sandbox_status(message: String, tint: Color) -> void:
+	if is_instance_valid(sandbox_status_label):
+		sandbox_status_label.text = message
+		sandbox_status_label.add_theme_color_override("font_color", tint)
+
+
+func _rpc_scalar_id(data: Variant) -> String:
+	if data is String:
+		return data.strip_edges().trim_prefix("\\"").trim_suffix("\\"")
+	if data is Dictionary:
+		for key in ["id", "uuid", "sandbox_id", "sandbox_entidad_id"]:
+			if data.has(key):
+				return str(data[key])
+	return ""
+
+
+func _sandbox_prepare_object() -> void:
+	if workspace_mode != "Sandbox":
+		return
+	if sandbox_object_option.item_count == 0 or sandbox_object_option.get_selected() < 0:
+		_set_sandbox_status("No hay objetos disponibles para preparar.", YELLOW)
+		return
+	var object_id := str(sandbox_object_option.get_item_metadata(sandbox_object_option.get_selected()))
+	sandbox_object = {}
+	for row in catalogs.get("objetos", []):
+		if row is Dictionary and str(row.get("id", "")) == object_id:
+			sandbox_object = row
+			break
+	if sandbox_object.is_empty() or object_id.is_empty():
+		_set_sandbox_status("No se pudo recuperar el objeto canónico.", RED)
+		return
+	sandbox_entity_id = ""
+	sandbox_simulation_id = ""
+	_set_sandbox_status("Creando sesión experimental…", YELLOW)
+	_request("rpc:sandbox_create", "/rest/v1/rpc/crear_sandbox", HTTPClient.METHOD_POST, {
+		"p_nombre": "Simulator · " + str(sandbox_object.get("nombre", "Objeto")),
+		"p_contexto": {"origen": "Simulator", "modo": "experimental", "objeto_id": object_id, "objeto_nombre": str(sandbox_object.get("nombre", "Objeto"))}
+	})
+
+
+func _sandbox_evaluate_process() -> void:
+	if workspace_mode != "Sandbox":
+		return
+	if sandbox_entity_id.is_empty() or sandbox_object.is_empty():
+		_set_sandbox_status("Primero prepara una copia experimental del objeto.", YELLOW)
+		return
+	if sandbox_process_option.item_count == 0 or sandbox_process_option.get_selected() < 0:
+		_set_sandbox_status("No hay procesos disponibles para evaluar.", YELLOW)
+		return
+	var process_id := str(sandbox_process_option.get_item_metadata(sandbox_process_option.get_selected()))
+	if process_id.is_empty():
+		_set_sandbox_status("El proceso seleccionado no tiene identificador canónico.", RED)
+		return
+	var properties: Variant = sandbox_object.get("propiedades_fisicas", {})
+	if not properties is Dictionary:
+		properties = {}
+	properties["temperatura"] = {"valor": sandbox_temperature_input.value, "unidad": "uΘ"}
+	var context := {
+		"sujeto": {"tipo": "item", "id": str(sandbox_object.get("id", "")), "nombre": str(sandbox_object.get("nombre", "Objeto")), "propiedades": properties},
+		"objetivo": {"tipo": "entorno", "propiedades": {}},
+		"propiedades": properties,
+		"componentes": [],
+		"estados": [],
+		"flujos": [],
+		"sandbox": {"simulacion_id": sandbox_simulation_id, "entidad_id": sandbox_entity_id, "solo_evaluacion": true}
+	}
+	_set_sandbox_status("Evaluando condiciones, leyes y balances del proceso…", YELLOW)
+	_request("rpc:sandbox_process", "/rest/v1/rpc/resolver_ejecucion_proceso_sandbox_v1", HTTPClient.METHOD_POST, {
+		"p_proceso_id": process_id,
+		"p_contexto": context,
+		"p_tolerancia": 0.000001
+	})
+
+
+func _sandbox_apply_temperature() -> void:
+	if workspace_mode != "Sandbox":
+		return
+	if sandbox_entity_id.is_empty():
+		_set_sandbox_status("Prepara primero una copia experimental del objeto.", YELLOW)
+		return
+	_request("rpc:sandbox_heat", "/rest/v1/rpc/establecer_temperatura_sandbox", HTTPClient.METHOD_POST, {
+		"p_sandbox_entidad_id": sandbox_entity_id,
+		"p_temperatura": sandbox_temperature_input.value,
+		"p_origen": "usuario_sandbox"
+	})
+	_set_sandbox_status("Actualizando temperatura en la copia experimental…", YELLOW)
 
 
 func _set_mode(mode: String) -> void:
@@ -1178,6 +1436,8 @@ func _on_search_changed(_value: String) -> void:
 
 
 func _toggle_selection() -> void:
+	if workspace_mode != "Sandbox":
+		return
 	if selected.is_empty():
 		return
 	var ident := str(selected.get("id", ""))
@@ -1200,8 +1460,9 @@ func _toggle_selection() -> void:
 func _refresh_actions() -> void:
 	if not is_instance_valid(selection_button) or not is_instance_valid(simulate_button):
 		return
+	var is_sandbox := workspace_mode == "Sandbox"
 	var supports_selection := current_key == "elementos" or current_key == "compuestos" or current_key == "iums"
-	selection_button.visible = supports_selection
+	selection_button.visible = is_sandbox and supports_selection
 	if selected.is_empty():
 		selection_button.text = "Selecciona un registro"
 		selection_button.disabled = true
@@ -1209,12 +1470,21 @@ func _refresh_actions() -> void:
 		var ident := str(selected.get("id", ""))
 		selection_button.disabled = ident.is_empty()
 		selection_button.text = ("Quitar de selección" if selected_ids.has(ident) else "Incluir en selección") + " · " + str(selected_ids.size())
-	simulate_button.visible = supports_selection
+	simulate_button.visible = is_sandbox and supports_selection
 	var required_count := 1 if current_key == "iums" else 2
-	simulate_button.disabled = selected_ids.size() < required_count
+	simulate_button.disabled = not is_sandbox or selected_ids.size() < required_count
 	if is_instance_valid(process_lab_panel):
-		process_lab_panel.visible = current_key == "procesos" and not selected.is_empty()
+		process_lab_panel.visible = is_sandbox and current_key == "procesos" and not selected.is_empty()
+	if is_instance_valid(sandbox_panel):
+		sandbox_panel.visible = is_sandbox
+	if is_instance_valid(sandbox_prepare_button):
+		sandbox_prepare_button.disabled = not is_sandbox or sandbox_object_option.item_count == 0
+	if is_instance_valid(sandbox_evaluate_button):
+		sandbox_evaluate_button.disabled = not is_sandbox or sandbox_entity_id.is_empty() or sandbox_process_option.item_count == 0
+	if is_instance_valid(sandbox_heat_button):
+		sandbox_heat_button.disabled = not is_sandbox or sandbox_entity_id.is_empty()
 	if is_instance_valid(process_run_button):
+		process_run_button.disabled = not is_sandbox or selected.is_empty() or current_key != "procesos" or process_oris_option.item_count == 0 or process_oris_option.get_selected() < 0 or process_oris_option.get_item_metadata(process_oris_option.get_selected()) == null or str(process_oris_option.get_item_metadata(process_oris_option.get_selected())).is_empty()
 		var oris_metadata: Variant = null
 		if process_oris_option.item_count > 0 and process_oris_option.get_selected() >= 0:
 			oris_metadata = process_oris_option.get_item_metadata(process_oris_option.get_selected())
@@ -1222,6 +1492,8 @@ func _refresh_actions() -> void:
 
 
 func _run_simulation() -> void:
+	if workspace_mode != "Sandbox":
+		return
 	last_rpc.clear()
 	result_panel.visible = false
 	_render_graph()
@@ -1264,6 +1536,8 @@ func _run_simulation() -> void:
 
 
 func _run_process_eterium() -> void:
+	if workspace_mode != "Sandbox":
+		return
 	last_rpc.clear()
 	result_panel.visible = false
 	_render_graph()
@@ -1486,6 +1760,47 @@ func _render_graph() -> void:
 			var process_id := str(selected.get("id", ""))
 			var laws := _related_rows("process_laws", "proceso_id", process_id)
 			var models := _related_rows("process_models", "proceso_id", process_id)
+			var config := _related_row("process_ium_config", "proceso_id", process_id)
+			var flow_rows := _related_rows("process_ium_flow", "configuracion_id", str(config.get("configuracion_id", "")))
+			if not config.is_empty() and not flow_rows.is_empty():
+				var topology_nodes: Array = []
+				var topology_unions: Array = []
+				var node_ids: Array[String] = []
+				var node_records: Array[Dictionary] = []
+				for flow in flow_rows:
+					for side in ["origen", "destino"]:
+						var ium_id := str(flow.get("ium_" + side + "_id", ""))
+						var ium_name := str(flow.get("ium_" + side, "IUM"))
+						if ium_id.is_empty() or node_ids.has(ium_id):
+						continue
+					var ium_row: Dictionary = {}
+					for candidate in catalogs.get("iums", []):
+						if candidate is Dictionary and str(candidate.get("id", "")) == ium_id:
+							ium_row = candidate
+							break
+					var particles: Array = []
+					for particle_row in _related_rows("ium_particles", "ium_id", ium_id):
+						var particle_value: Variant = particle_row.get("particulas", {})
+						if particle_value is Array and not particle_value.is_empty():
+							particle_value = particle_value[0]
+						if particle_value is Dictionary:
+							for repeat_index in range(mini(4, maxi(1, int(particle_row.get("cantidad", 1))))):
+								particles.append({"nombre": str(particle_value.get("nombre", "Partícula")), "formula": str(particle_value.get("formula", ""))})
+					var geo := _related_row("ium_geometry", "ium_id", ium_id)
+					var pos_key := "a" if node_records.is_empty() else ("nucleo" if node_records.size() == 1 else ("b" if node_records.size() == 2 else ("d" if node_records.size() == 3 else "c")))
+					var participation := str(flow.get("participacion_" + side, ""))
+					node_ids.append(ium_id)
+					node_records.append({"posicion": pos_key, "ium": str(ium_row.get("nombre", ium_name)), "ium_id": ium_id, "rol": participation, "cantidad": 1, "particles": particles, "geometry": str(geo.get("geometria", "radial"))})
+				for flow in flow_rows:
+					var from_id := str(flow.get("ium_origen_id", ""))
+					var to_id := str(flow.get("ium_destino_id", ""))
+					var from_index := node_ids.find(from_id)
+					var to_index := node_ids.find(to_id)
+					if from_index < 0 or to_index < 0:
+						continue
+					topology_unions.append({"origen": str(node_records[from_index].get("posicion", "a")), "destino": str(node_records[to_index].get("posicion", "b")), "tipo_union": str(flow.get("tipo_union", "dirigida")), "descripcion": str(flow.get("salida_origen", ""))})
+				graph.set_graph([{"visual_type": "oris", "title": str(selected.get("nombre", "Proceso")), "topology_id": str(config.get("topologia_id", "T02")), "topology": str(config.get("topologia", "Topología de proceso")), "oris_nodes": node_records, "oris_unions": topology_unions}], "")
+				return
 			var law_title := "Sin ley vinculada"
 			var law_detail := "No hay ley cuantitativa registrada para este proceso"
 			if not laws.is_empty():
