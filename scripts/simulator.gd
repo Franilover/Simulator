@@ -1280,13 +1280,6 @@ func _render_graph() -> void:
 				"geometry": geometry_name
 			}], "")
 			return
-			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
-			nodes = [
-				{"role": "PARTÍCULAS", "title": str(selected.get("nombre", "IUM")), "detail": part_text if not part_text.is_empty() else str(selected.get("detalle", "Composición no disponible")), "color": LAVENDER},
-				{"role": "ORGANIZACIÓN", "title": str(conf.get("patron_organizacion", "Patrón funcional")), "detail": str(conf.get("topologia_acoplamiento", "Topología no indicada")), "color": ACCENT},
-				{"role": "GARIN", "title": str(conf.get("regimen_garin", "Régimen espacial")), "detail": "Infraestructura espacial configurada", "color": ORANGE},
-				{"role": "COHERENCIA", "title": "Eterium", "detail": str(conf.get("dependencia_eterium", "Dependencia según el canon")), "color": TEAL}
-			]
 		"particulas":
 			graph.set_graph([{
 				"visual_type": "particula",
@@ -1294,11 +1287,6 @@ func _render_graph() -> void:
 				"formula": str(selected.get("formula", ""))
 			}], "")
 			return
-			nodes = [
-				{"role": "IDENTIDAD TASI", "title": str(selected.get("nombre", "Partícula")), "detail": str(selected.get("formula", "Sin fórmula indicada")), "color": YELLOW},
-				{"role": "FUNCIÓN", "title": str(selected.get("funcion_canonica", "Función canónica")), "detail": str(selected.get("capa_canonica", "Capa no indicada")), "color": ACCENT},
-				{"role": "EFECTO", "title": "Efecto registrado", "detail": str(selected.get("efecto_canonico", "No indicado")), "color": TEAL}
-			]
 		"elementos":
 			var parts := _related_text("element_particles", "elemento_id", "nombre", "particulas", str(selected.get("id", "")))
 			nodes = [
