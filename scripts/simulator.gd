@@ -482,7 +482,7 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 			last_rpc = {"tag": tag, "data": data}
 			result_label.text = _rpc_summary(data, tag)
 			_graph_rpc_result(data, tag)
-			inspector_title.text = "Respuesta del motor"
+			inspector_title.text = "Resultado de simulación"
 			_render_inspector()
 			_set_status("Cálculo devuelto por Supabase", GREEN)
 		else:
@@ -1130,17 +1130,15 @@ func _render_inspector() -> void:
 				for property_key in ["masa", "carga", "volumen_real", "volumen", "densidad_real", "densidad", "estabilidad", "rigidez", "flexibilidad", "dureza", "conductividad", "transparencia", "interaccion", "nota"]:
 					if response.has(property_key):
 						_add_detail(property_key.replace("_", " ").capitalize(), str(response[property_key]))
-			_add_detail("Respuesta íntegra", _pretty(response))
 		return
 	if selected.is_empty():
-		inspector_title.text = "Trazabilidad canónica"
+		inspector_title.text = "Explora el canon"
 		_add_detail("Cómo empezar", "Elige una entidad a la izquierda. El grafo muestra sus relaciones disponibles.")
 		_add_detail("Motor de materia", "En Elementos o Compuestos selecciona dos o más registros y usa Resolver en Supabase.")
 		_add_detail("Criterio de rigor", "Los valores calculados proceden de la respuesta RPC; las vistas gráficas son descriptivas.")
 		return
 
-	inspector_title.text = current_key.capitalize()
-	_add_detail("Identidad", str(selected.get("nombre", "Sin nombre")), ACCENT)
+	inspector_title.text = str(selected.get("nombre", current_key.capitalize()))
 	match current_key:
 		"procesos":
 			_add_detail("Tipo / naturaleza", str(selected.get("tipo", "—")) + " / " + str(selected.get("naturaleza_canonica", "—")))
@@ -1226,10 +1224,28 @@ func _render_inspector() -> void:
 
 
 func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> void:
+	var card := PanelContainer.new()
+	var card_style := StyleBoxFlat.new()
+	card_style.bg_color = Color("#182131")
+	card_style.border_color = Color("#2b374a")
+	card_style.set_border_width_all(1)
+	card_style.set_corner_radius_all(10)
+	card_style.content_margin_left = 0
+	card_style.content_margin_right = 0
+	card_style.content_margin_top = 0
+	card_style.content_margin_bottom = 0
+	card.add_theme_stylebox_override("panel", card_style)
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inspector_content.add_child(card)
+	var margin := _with_margin(card, 11)
+	card.add_child(margin)
 	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 3)
-	inspector_content.add_child(block)
-	block.add_child(_label(heading.to_upper(), 10, MUTED))
+	block.add_theme_constant_override("separation", 5)
+	block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	margin.add_child(block)
+	var title := _label(heading.to_upper(), 10, MUTED)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	block.add_child(title)
 	var label := _label(value if not value.is_empty() else "Sin dato registrado", 12, tint)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
