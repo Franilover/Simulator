@@ -768,8 +768,8 @@ func _refresh_subnav() -> void:
 			options = [
 				{"key": "elementos", "label": "Elementos"},
 				{"key": "compuestos", "label": "Compuestos"},
-				{"key": "materiales", "label": "Materiales"},
-				{"key": "estructuras", "label": "Estructuras"}
+				{"key": "estructuras", "label": "Estructuras"},
+				{"key": "materiales", "label": "Materiales"}
 			]
 	if options.is_empty():
 		subnav.visible = false
@@ -1279,7 +1279,7 @@ func _render_graph() -> void:
 				"particles": particle_visuals,
 				"geometry": geometry_name
 			}], "")
-			var part_text := _related_text("ium_particles", "ium_id", "nombre", "particulas", ium_id)
+			return
 			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
 			nodes = [
 				{"role": "PARTÍCULAS", "title": str(selected.get("nombre", "IUM")), "detail": part_text if not part_text.is_empty() else str(selected.get("detalle", "Composición no disponible")), "color": LAVENDER},
