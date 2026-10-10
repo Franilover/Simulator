@@ -633,6 +633,7 @@ var sandbox_status_label: Label
 var sandbox_prepare_button: Button
 var sandbox_evaluate_button: Button
 var sandbox_heat_button: Button
+var sandbox_discard_button: Button
 var result_panel: PanelContainer
 var result_label: Label
 var graph_title: Label
@@ -862,6 +863,8 @@ func _build_ui() -> void:
 	sandbox_actions.add_child(sandbox_evaluate_button)
 	sandbox_heat_button = _button("Aplicar temperatura", Callable(self, "_sandbox_apply_temperature"), false)
 	sandbox_actions.add_child(sandbox_heat_button)
+	sandbox_discard_button = _button("Descartar prueba", Callable(self, "_sandbox_discard"), false)
+	sandbox_actions.add_child(sandbox_discard_button)
 	sandbox_status_label = _label("Sin experimento preparado.", 10, MUTED)
 	sandbox_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	sandbox_content.add_child(sandbox_status_label)
@@ -1042,6 +1045,18 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 		else:
 			_set_sandbox_status("No se aplicó el cambio térmico: " + message, RED)
 		return
+	if tag == "rpc:sandbox_discard":
+		if ok:
+			sandbox_simulation_id = ""
+			sandbox_entity_id = ""
+			sandbox_object.clear()
+			last_rpc.clear()
+			result_panel.visible = false
+			_set_sandbox_status("Sesión experimental descartada.", MUTED)
+			_refresh_actions()
+		else:
+			_set_sandbox_status("No se pudo descartar la sesión: " + message, RED)
+		return
 	if tag == "rpc:sandbox_process":
 		if ok:
 			last_rpc = {"tag": tag, "data": data}
@@ -1166,7 +1181,7 @@ func _set_sandbox_status(message: String, tint: Color) -> void:
 
 func _rpc_scalar_id(data: Variant) -> String:
 	if data is String:
-		return data.strip_edges().trim_prefix("\\"").trim_suffix("\\"")
+		return data.strip_edges()
 	if data is Dictionary:
 		for key in ["id", "uuid", "sandbox_id", "sandbox_entidad_id"]:
 			if data.has(key):
@@ -1244,6 +1259,16 @@ func _sandbox_apply_temperature() -> void:
 		"p_origen": "usuario_sandbox"
 	})
 	_set_sandbox_status("Actualizando temperatura en la copia experimental…", YELLOW)
+
+
+func _sandbox_discard() -> void:
+	if workspace_mode != "Sandbox":
+		return
+	if sandbox_simulation_id.is_empty():
+		_set_sandbox_status("No hay una sesión activa que descartar.", MUTED)
+		return
+	_request("rpc:sandbox_discard", "/rest/v1/rpc/descartar_sandbox", HTTPClient.METHOD_POST, {"p_simulacion_id": sandbox_simulation_id})
+	_set_sandbox_status("Descartando sesión experimental…", YELLOW)
 
 
 func _set_mode(mode: String) -> void:
@@ -1483,12 +1508,14 @@ func _refresh_actions() -> void:
 		sandbox_evaluate_button.disabled = not is_sandbox or sandbox_entity_id.is_empty() or sandbox_process_option.item_count == 0
 	if is_instance_valid(sandbox_heat_button):
 		sandbox_heat_button.disabled = not is_sandbox or sandbox_entity_id.is_empty()
+	if is_instance_valid(sandbox_discard_button):
+		sandbox_discard_button.disabled = not is_sandbox or sandbox_simulation_id.is_empty()
 	if is_instance_valid(process_run_button):
 		process_run_button.disabled = not is_sandbox or selected.is_empty() or current_key != "procesos" or process_oris_option.item_count == 0 or process_oris_option.get_selected() < 0 or process_oris_option.get_item_metadata(process_oris_option.get_selected()) == null or str(process_oris_option.get_item_metadata(process_oris_option.get_selected())).is_empty()
 		var oris_metadata: Variant = null
 		if process_oris_option.item_count > 0 and process_oris_option.get_selected() >= 0:
 			oris_metadata = process_oris_option.get_item_metadata(process_oris_option.get_selected())
-		process_run_button.disabled = selected.is_empty() or current_key != "procesos" or oris_metadata == null or str(oris_metadata).is_empty()
+		process_run_button.disabled = not is_sandbox or selected.is_empty() or current_key != "procesos" or oris_metadata == null or str(oris_metadata).is_empty()
 
 
 func _run_simulation() -> void:
@@ -2005,6 +2032,13 @@ func _render_inspector() -> void:
 	match current_key:
 		"procesos":
 			_add_detail("Tipo / naturaleza", str(selected.get("tipo", "—")) + " / " + str(selected.get("naturaleza_canonica", "—")))
+			var process_config := _related_row("process_ium_config", "proceso_id", str(selected.get("id", "")))
+			if not process_config.is_empty():
+				_add_detail("Organización IUM del proceso", str(process_config.get("configuracion", "Configuración sin nombre")) + "\nEstado: " + str(process_config.get("estado", "—")) + "\nVersión: " + str(process_config.get("version", "—")), LAVENDER)
+				_add_detail("Topología del proceso", str(process_config.get("topologia_id", "—")) + " · " + str(process_config.get("topologia", "No indicada")) + "\nIUM: " + str(process_config.get("n_iums", "—")) + " · Uniones: " + str(process_config.get("n_uniones", "—")))
+				_add_detail("IUM participantes", str(process_config.get("iums", "No hay composición visible")))
+				_add_detail("Oris compatible / principal", str(process_config.get("oris_principal", "—")) + " / " + str(process_config.get("oris_compatibles", "—")))
+				_add_detail("Demanda estructural de Eterium", str(process_config.get("demanda_eterium_organizacion", "No calculada")), TEAL)
 			_add_detail("Entrada", str(selected.get("entrada", "No registrada")))
 			_add_detail("Transformación", str(selected.get("transformacion", selected.get("descripcion", "No registrada"))))
 			_add_detail("Salida", str(selected.get("salida", "No registrada")), GREEN)
