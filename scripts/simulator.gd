@@ -19,8 +19,8 @@ const LAVENDER := Color("#c5a5ff")
 class FlowCanvas extends Control:
 	var nodes_data: Array = []
 	var caption := ""
-	const INK := Color("#cdd6f4")
-	const ACCENT := Color("#b4befe")
+	const INK := Color("#edf2fa")
+	const ACCENT := Color("#a9b8ff")
 	const SUBTLE := Color("#8793aa")
 	const LINE := Color("#56647b")
 
@@ -191,7 +191,7 @@ func _build_ui() -> void:
 	status_dot.color = YELLOW
 	status_dot.custom_minimum_size = Vector2(8, 8)
 	connection_row.add_child(status_dot)
-	status_label = _label("Conectando a Supabase", 10, MUTED)
+	status_label = _label("Conectando a Supabase", 11, MUTED)
 	connection_row.add_child(status_label)
 	header.add_child(_button("↻ Actualizar", Callable(self, "_reload_catalogues"), false))
 
@@ -254,7 +254,7 @@ func _build_ui() -> void:
 	var graph_titles := VBoxContainer.new()
 	graph_titles.add_theme_constant_override("separation", 2)
 	center_header.add_child(graph_titles)
-	graph_title = _label("Selecciona una entidad", 17, TEXT_COLOR)
+	graph_title = _label("Selecciona una entidad", 19, TEXT_COLOR)
 	graph_titles.add_child(graph_title)
 	var head_spacer := Control.new()
 	head_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -283,7 +283,7 @@ func _build_ui() -> void:
 	var process_lab_content := VBoxContainer.new()
 	process_lab_content.add_theme_constant_override("separation", 9)
 	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
-	process_lab_content.add_child(_label("DEMANDA DE ETERIUM", 11, TEAL))
+	process_lab_content.add_child(_label("DEMANDA DE ETERIUM", 12, TEAL))
 	process_requirements_label = _label("Magnitudes requeridas por la ley registrada.", 11, MUTED)
 	process_requirements_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	process_lab_content.add_child(process_requirements_label)
@@ -361,7 +361,7 @@ func _build_ui() -> void:
 	right.add_theme_constant_override("separation", 7)
 	right_panel.add_child(_with_margin(right, 14))
 	right.add_child(_label("DETALLES", 11, MUTED))
-	inspector_title = _label("Registro seleccionado", 15, ACCENT)
+	inspector_title = _label("Registro seleccionado", 17, ACCENT)
 	right.add_child(inspector_title)
 	var inspector_scroll := ScrollContainer.new()
 	inspector_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1237,10 +1237,10 @@ func _render_inspector() -> void:
 func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> void:
 	var card := PanelContainer.new()
 	var card_style := StyleBoxFlat.new()
-	card_style.bg_color = Color("#182131")
-	card_style.border_color = Color("#2b374a")
+	card_style.bg_color = Color("#151e2b")
+	card_style.border_color = Color("#354359")
 	card_style.set_border_width_all(1)
-	card_style.set_corner_radius_all(10)
+	card_style.set_corner_radius_all(12)
 	card_style.content_margin_left = 0
 	card_style.content_margin_right = 0
 	card_style.content_margin_top = 0
@@ -1259,10 +1259,10 @@ func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> vo
 	block.add_theme_constant_override("separation", 5)
 	block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margin.add_child(block)
-	var title := _label(heading.to_upper(), 10, MUTED)
+	var title := _label(heading.to_upper(), 10, Color("#b7c5dc"))
 	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	block.add_child(title)
-	var label := _label(value if not value.is_empty() else "Sin dato registrado", 12, tint)
+	var label := _label(value if not value.is_empty() else "Sin dato registrado", 13, tint)
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	block.add_child(label)
