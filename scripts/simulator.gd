@@ -22,7 +22,7 @@ class FlowCanvas extends Control:
 	const INK := Color("#cdd6f4")
 	const ACCENT := Color("#b4befe")
 	const SUBTLE := Color("#8793aa")
-	const LINE := Color("#45475a")
+	const LINE := Color("#56647b")
 
 	func set_graph(data: Array, title_text: String) -> void:
 		nodes_data = data
@@ -118,6 +118,7 @@ var success_count := 0
 var mode_tabs: HBoxContainer
 var subnav: HBoxContainer
 var catalog_list: VBoxContainer
+var catalog_count_label: Label
 var search_input: LineEdit
 var graph: FlowCanvas
 var inspector_content: VBoxContainer
@@ -207,7 +208,7 @@ func _build_ui() -> void:
 	page.add_child(body)
 
 	var left_panel := _panel()
-	left_panel.custom_minimum_size = Vector2(286, 0)
+	left_panel.custom_minimum_size = Vector2(270, 0)
 	body.add_child(left_panel)
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 10)
@@ -222,6 +223,8 @@ func _build_ui() -> void:
 	search_input.add_theme_stylebox_override("focus", _field_style(true))
 	search_input.text_changed.connect(_on_search_changed)
 	left.add_child(search_input)
+	catalog_count_label = _label("CARGANDO REGISTROS", 10, MUTED)
+	left.add_child(catalog_count_label)
 
 	var list_scroll := ScrollContainer.new()
 	list_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -352,7 +355,7 @@ func _build_ui() -> void:
 	result_content.add_child(result_label)
 
 	var right_panel := _panel()
-	right_panel.custom_minimum_size = Vector2(318, 0)
+	right_panel.custom_minimum_size = Vector2(300, 0)
 	body.add_child(right_panel)
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 7)
@@ -647,6 +650,9 @@ func _render_catalog() -> void:
 		subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row_content.add_child(subtitle)
 		catalog_list.add_child(row)
+	if is_instance_valid(catalog_count_label):
+		var total := entries.size()
+		catalog_count_label.text = "%d REGISTROS" % total if query.is_empty() else "%d DE %d COINCIDEN" % [count, total]
 	if count == 0:
 		var message := "Consultando Supabase…"
 		if finished.get(current_key, false):
