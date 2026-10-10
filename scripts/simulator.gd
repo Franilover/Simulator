@@ -166,36 +166,7 @@ func _build_ui() -> void:
 	page.add_theme_constant_override("separation", 12)
 	outer.add_child(page)
 
-	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 16)
-	page.add_child(header)
-
-	var identity := VBoxContainer.new()
-	identity.add_theme_constant_override("separation", 2)
-	header.add_child(identity)
-	identity.add_child(_label("GARLIA  /  LABORATORIO", 11, ACCENT))
-	identity.add_child(_label("Simulator", 25, TEXT_COLOR))
-
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header.add_child(spacer)
-
-	var connection_panel := _panel()
-	connection_panel.custom_minimum_size = Vector2(190, 0)
-	header.add_child(connection_panel)
-	var connection_row := HBoxContainer.new()
-	connection_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	connection_row.add_theme_constant_override("separation", 8)
-	connection_panel.add_child(_with_margin(connection_row, 9))
-	status_dot = ColorRect.new()
-	status_dot.color = YELLOW
-	status_dot.custom_minimum_size = Vector2(8, 8)
-	connection_row.add_child(status_dot)
-	status_label = _label("Conectando a Supabase", 11, MUTED)
-	connection_row.add_child(status_label)
-	header.add_child(_button("↻ Actualizar", Callable(self, "_reload_catalogues"), false))
-
-	mode_tabs = HBoxContainer.new()
+		mode_tabs = HBoxContainer.new()
 	mode_tabs.add_theme_constant_override("separation", 8)
 	page.add_child(mode_tabs)
 	subnav = HBoxContainer.new()
@@ -240,7 +211,6 @@ func _build_ui() -> void:
 	selection_button = _button("Incluir en selección", Callable(self, "_toggle_selection"), false)
 	selection_button.visible = false
 	left.add_child(selection_button)
-	left.add_child(_label("Fuente: catálogos públicos de Supabase", 9, Color("#6c7086")))
 
 	var center_panel := _panel()
 	center_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -270,11 +240,7 @@ func _build_ui() -> void:
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 8)
 	center.add_child(actions)
-	var note := _label("Relaciones registradas para la entidad seleccionada.", 11, MUTED)
-	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	actions.add_child(note)
-	simulate_button = _button("Resolver en Supabase", Callable(self, "_run_simulation"), true)
+	simulate_button = _button("Resolver selección", Callable(self, "_run_simulation"), true)
 	simulate_button.visible = false
 	actions.add_child(simulate_button)
 
@@ -285,7 +251,7 @@ func _build_ui() -> void:
 	process_lab_content.add_theme_constant_override("separation", 9)
 	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
 	process_lab_content.add_child(_label("DEMANDA DE ETERIUM", 12, TEAL))
-	process_requirements_label = _label("Magnitudes requeridas por la ley registrada.", 11, MUTED)
+	process_requirements_label = _label("", 11, MUTED)
 	process_requirements_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	process_lab_content.add_child(process_requirements_label)
 	var process_options := HBoxContainer.new()
@@ -346,7 +312,7 @@ func _build_ui() -> void:
 	var process_actions := HBoxContainer.new()
 	process_actions.alignment = BoxContainer.ALIGNMENT_END
 	process_lab_content.add_child(process_actions)
-	process_run_button = _button("Calcular demanda en Supabase", Callable(self, "_run_process_eterium"), true)
+	process_run_button = _button("Calcular demanda", Callable(self, "_run_process_eterium"), true)
 	process_actions.add_child(process_run_button)
 
 	result_panel = _panel()
@@ -495,7 +461,7 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 			_graph_rpc_result(data, tag)
 			inspector_title.text = "Resultado de simulación"
 			_render_inspector()
-			_set_status("Cálculo devuelto por Supabase", GREEN)
+			_set_status("Cálculo completado", GREEN)
 		else:
 			result_label.text = "El motor rechazó la petición.\n" + message
 			_set_status("Error al calcular", RED)
@@ -504,13 +470,13 @@ func _handle_response(tag: String, ok: bool, data: Variant, message: String) -> 
 
 func _update_status() -> void:
 	if success_count > 0 and errors.is_empty():
-		_set_status("Supabase conectado · catálogos leídos", GREEN)
+		_set_status("Catálogos cargados", GREEN)
 	elif success_count > 0:
 		_set_status("Conexión parcial · revisar avisos", ORANGE)
 	elif not errors.is_empty():
 		_set_status("No se pudieron leer los catálogos", RED)
 	else:
-		_set_status("Conectando a Supabase", YELLOW)
+		_set_status("Cargando datos…", YELLOW)
 
 
 func _set_status(message: String, tint: Color) -> void:
@@ -667,12 +633,12 @@ func _render_catalog() -> void:
 		else:
 			catalog_count_label.text = "ERROR DE ACCESO"
 	if count == 0:
-		var message := "Consultando Supabase…"
+		var message := "Cargando…"
 		if finished.get(current_key, false):
 			if errors.has(current_key):
 				message = "Catálogo inaccesible.\n" + str(errors[current_key])
 			elif entries.is_empty() and query.is_empty():
-				message = "Supabase no devolvió filas visibles. El catálogo puede estar vacío o la RLS puede limitar su lectura."
+				message = "No hay datos visibles en este catálogo."
 			else:
 				message = "No hay resultados para este filtro."
 		var empty := _label(message, 12, MUTED)
@@ -789,7 +755,7 @@ func _run_simulation() -> void:
 				"destino": selected_ids[index + 1],
 				"tipo_union": "dirigida"
 			})
-		_set_status("Evaluando organización IUM en Supabase…", YELLOW)
+		_set_status("Evaluando organización IUM…", YELLOW)
 		_request("rpc:ium", "/rest/v1/rpc/simular_organizacion_ium_v1", HTTPClient.METHOD_POST, {
 			"p_componentes": components,
 			"p_enlaces": links,
@@ -800,10 +766,10 @@ func _run_simulation() -> void:
 		_show_result("Selecciona al menos dos registros.")
 		return
 	if current_key == "elementos":
-		_set_status("Calculando compuesto en Supabase…", YELLOW)
+		_set_status("Calculando compuesto…", YELLOW)
 		_request("rpc:compuesto", "/rest/v1/rpc/simular_compuesto_desde_elementos", HTTPClient.METHOD_POST, {"p_elemento_ids": selected_ids})
 	elif current_key == "compuestos":
-		_set_status("Calculando material en Supabase…", YELLOW)
+		_set_status("Calculando material…", YELLOW)
 		_request("rpc:material", "/rest/v1/rpc/simular_material_desde_compuestos", HTTPClient.METHOD_POST, {"p_compuesto_ids": selected_ids})
 
 
@@ -828,7 +794,7 @@ func _run_process_eterium() -> void:
 		return
 	var oris_id := str(selected_oris_metadata)
 	var time_model := process_time_model.get_item_text(process_time_model.get_selected())
-	_set_status("Calculando física y demanda de Eterium en Supabase…", YELLOW)
+	_set_status("Calculando física y demanda de Eterium…", YELLOW)
 	_request("rpc:eterium", "/rest/v1/rpc/calcular_requerimiento_eterium_proceso_v1", HTTPClient.METHOD_POST, {
 		"p_oris_id": oris_id,
 		"p_proceso_id": str(selected.get("id", "")),
@@ -893,9 +859,9 @@ func _update_process_requirements() -> void:
 			line += " · Variables: " + ", ".join(magnitude_names)
 		requirements.append(line)
 	if requirements.is_empty():
-		process_requirements_label.text = "No se encontró una ley cuantitativa registrada para este proceso. Supabase devolverá el estado de resolución que corresponda."
+		process_requirements_label.text = "No hay una ley cuantitativa disponible para este proceso."
 	else:
-		process_requirements_label.text = "Según Supabase: " + " | ".join(requirements)
+		process_requirements_label.text = "Magnitudes: " + " | ".join(requirements)
 
 
 func _show_result(message: String) -> void:
@@ -1153,7 +1119,7 @@ func _render_inspector() -> void:
 	if selected.is_empty():
 		inspector_title.text = "Explora el canon"
 		_add_detail("Cómo empezar", "Elige una entidad a la izquierda. El grafo muestra sus relaciones disponibles.")
-		_add_detail("Motor de materia", "En Elementos o Compuestos selecciona dos o más registros y usa Resolver en Supabase.")
+		_add_detail("Motor de materia", "En Elementos o Compuestos, selecciona dos o más registros y pulsa Resolver selección.")
 		_add_detail("Criterio de rigor", "Los valores calculados proceden de la respuesta RPC; las vistas gráficas son descriptivas.")
 		return
 
