@@ -478,6 +478,58 @@ class FlowCanvas extends Control:
 		var label := "∆" if particle_mode_initial else "Aa"
 		draw_string(ThemeDB.fallback_font, Vector2(rect.position.x + 3.0, rect.position.y + 15.0), label, HORIZONTAL_ALIGNMENT_CENTER, rect.size.x - 6.0, 11, Color("#0e131d"))
 
+	func _get_tooltip(at_position: Vector2) -> String:
+		if nodes_data.is_empty():
+			return ""
+		var data: Dictionary = nodes_data[0]
+		var visual_type := str(data.get("visual_type", ""))
+		if visual_type == "particula":
+			return str(data.get("title", "Partícula")) + "\nFórmula TASI: " + str(data.get("formula", "—"))
+		if visual_type == "ium":
+			var particles: Array = data.get("particles", [])
+			var names: Array[String] = []
+			for particle in particles:
+				if particle is Dictionary:
+					names.append(str(particle.get("nombre", "Partícula")))
+			return str(data.get("title", "IUM")) + "\nGeometría: " + str(data.get("geometry", "radial")) + "\nPartículas: " + (", ".join(names) if not names.is_empty() else "Sin composición")
+		if visual_type == "oris":
+			var positions := _oris_layout(data)
+			var graph_nodes: Array = data.get("oris_nodes", [])
+			var w := minf(size.x - 48.0, 520.0)
+			var h := minf(size.y - 86.0, 300.0)
+			var node_radius := clampf(minf(w / 12.0, h / 6.5), 15.0, 25.0)
+			for node in graph_nodes:
+				if not node is Dictionary:
+					continue
+				var key := str(node.get("posicion", ""))
+				if not positions.has(key):
+					continue
+				var p: Vector2 = positions[key]
+				var rr := node_radius * (1.16 if key == "nucleo" else 1.0)
+				if at_position.distance_to(p) <= rr + 5.0:
+					return str(node.get("ium", node.get("ium_id", "IUM"))) + "\nRol: " + str(node.get("rol", "—")).replace("_", " ") + "\nCantidad: " + str(node.get("cantidad", 1)) + "\nPulsa para inspeccionar el IUM."
+			var unions: Array = data.get("oris_unions", [])
+			for union in unions:
+				if not union is Dictionary:
+					continue
+				var from_key := str(union.get("origen", ""))
+				var to_key := str(union.get("destino", ""))
+				if not positions.has(from_key) or not positions.has(to_key):
+					continue
+				var a: Vector2 = positions[from_key]
+				var b: Vector2 = positions[to_key]
+				var direction := (b - a).normalized()
+				var from_radius := node_radius * (1.16 if from_key == "nucleo" else 1.0)
+				var to_radius := node_radius * (1.16 if to_key == "nucleo" else 1.0)
+				var start := a + direction * (from_radius + 3.0)
+				var finish := b - direction * (to_radius + 7.0)
+				var segment := finish - start
+				var ratio := clampf((at_position - start).dot(segment) / maxf(segment.length_squared(), 1.0), 0.0, 1.0)
+				if at_position.distance_to(start + segment * ratio) <= 6.0:
+					var kind := str(union.get("tipo_union", "dirigida"))
+					return str(union.get("descripcion", "")) + "\nUnión " + kind + ": " + from_key + " → " + to_key
+		return ""
+
 	func _gui_input(event: InputEvent) -> void:
 		if not event is InputEventMouseButton or not event.pressed or event.button_index != MOUSE_BUTTON_LEFT:
 			return
