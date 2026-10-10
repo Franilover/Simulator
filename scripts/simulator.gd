@@ -652,7 +652,12 @@ func _render_catalog() -> void:
 		catalog_list.add_child(row)
 	if is_instance_valid(catalog_count_label):
 		var total := entries.size()
-		catalog_count_label.text = "%d REGISTROS" % total if query.is_empty() else "%d DE %d COINCIDEN" % [count, total]
+		if not finished.get(current_key, false):
+			catalog_count_label.text = "CARGANDO REGISTROS"
+		elif not errors.has(current_key):
+			catalog_count_label.text = "%d REGISTROS" % total if query.is_empty() else "%d DE %d COINCIDEN" % [count, total]
+		else:
+			catalog_count_label.text = "ERROR DE ACCESO"
 	if count == 0:
 		var message := "Consultando Supabase…"
 		if finished.get(current_key, false):
