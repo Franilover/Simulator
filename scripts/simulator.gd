@@ -612,10 +612,40 @@ func _render_catalog() -> void:
 		var ident := str(item.get("id", ""))
 		var active := not selected.is_empty() and str(selected.get("id", "")) == ident
 		var included := selected_ids.has(ident)
-		var row := _button(("✓  " if included else "") + name + "\n" + _item_subtitle(item), Callable(self, "_on_item_pressed").bind(item), active)
-		row.custom_minimum_size = Vector2(0, 58)
+		var row := _button("", Callable(self, "_on_item_pressed").bind(item), active)
+		row.custom_minimum_size = Vector2(0, 72)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		var row_margin := MarginContainer.new()
+		row_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		row_margin.add_theme_constant_override("margin_left", 12)
+		row_margin.add_theme_constant_override("margin_right", 12)
+		row_margin.add_theme_constant_override("margin_top", 8)
+		row_margin.add_theme_constant_override("margin_bottom", 8)
+		row_margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(row_margin)
+		var row_content := VBoxContainer.new()
+		row_content.add_theme_constant_override("separation", 4)
+		row_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_margin.add_child(row_content)
+		var title_row := HBoxContainer.new()
+		title_row.add_theme_constant_override("separation", 6)
+		title_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_content.add_child(title_row)
+		var title_label := _label(name, 13, TEXT_COLOR if active else Color("#e0e7f2"))
+		title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		title_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		title_row.add_child(title_label)
+		if included or active:
+			var badge_text := "EN SELECCIÓN" if included else "ACTIVO"
+			var badge := _label(badge_text, 10, TEAL if included else ACCENT)
+			badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			title_row.add_child(badge)
+		var subtitle := _label(_item_subtitle(item), 11, MUTED)
+		subtitle.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		subtitle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row_content.add_child(subtitle)
 		catalog_list.add_child(row)
 	if count == 0:
 		var message := "Consultando Supabase…"
@@ -626,7 +656,7 @@ func _render_catalog() -> void:
 				message = "Supabase no devolvió filas visibles. El catálogo puede estar vacío o la RLS puede limitar su lectura."
 			else:
 				message = "No hay resultados para este filtro."
-		var empty := _label(message, 11, MUTED)
+		var empty := _label(message, 12, MUTED)
 		empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		catalog_list.add_child(empty)
 	_refresh_actions()
