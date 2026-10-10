@@ -1799,25 +1799,25 @@ func _render_graph() -> void:
 						var ium_id := str(flow.get("ium_" + side + "_id", ""))
 						var ium_name := str(flow.get("ium_" + side, "IUM"))
 						if ium_id.is_empty() or node_ids.has(ium_id):
-						continue
-					var ium_row: Dictionary = {}
-					for candidate in catalogs.get("iums", []):
-						if candidate is Dictionary and str(candidate.get("id", "")) == ium_id:
-							ium_row = candidate
-							break
-					var particles: Array = []
-					for particle_row in _related_rows("ium_particles", "ium_id", ium_id):
-						var particle_value: Variant = particle_row.get("particulas", {})
-						if particle_value is Array and not particle_value.is_empty():
-							particle_value = particle_value[0]
-						if particle_value is Dictionary:
-							for repeat_index in range(mini(4, maxi(1, int(particle_row.get("cantidad", 1))))):
-								particles.append({"nombre": str(particle_value.get("nombre", "Partícula")), "formula": str(particle_value.get("formula", ""))})
-					var geo := _related_row("ium_geometry", "ium_id", ium_id)
-					var pos_key := "a" if node_records.is_empty() else ("nucleo" if node_records.size() == 1 else ("b" if node_records.size() == 2 else ("d" if node_records.size() == 3 else "c")))
-					var participation := str(flow.get("participacion_" + side, ""))
-					node_ids.append(ium_id)
-					node_records.append({"posicion": pos_key, "ium": str(ium_row.get("nombre", ium_name)), "ium_id": ium_id, "rol": participation, "cantidad": 1, "particles": particles, "geometry": str(geo.get("geometria", "radial"))})
+							continue
+						var ium_row: Dictionary = {}
+						for candidate in catalogs.get("iums", []):
+							if candidate is Dictionary and str(candidate.get("id", "")) == ium_id:
+								ium_row = candidate
+								break
+						var particles: Array = []
+						for particle_row in _related_rows("ium_particles", "ium_id", ium_id):
+							var particle_value: Variant = particle_row.get("particulas", {})
+							if particle_value is Array and not particle_value.is_empty():
+								particle_value = particle_value[0]
+							if particle_value is Dictionary:
+								for repeat_index in range(mini(4, maxi(1, int(particle_row.get("cantidad", 1))))):
+									particles.append({"nombre": str(particle_value.get("nombre", "Partícula")), "formula": str(particle_value.get("formula", ""))})
+						var geo := _related_row("ium_geometry", "ium_id", ium_id)
+						var pos_key := "a" if node_records.is_empty() else ("nucleo" if node_records.size() == 1 else ("b" if node_records.size() == 2 else ("d" if node_records.size() == 3 else "c")))
+						var participation := str(flow.get("participacion_" + side, ""))
+						node_ids.append(ium_id)
+						node_records.append({"posicion": pos_key, "ium": str(ium_row.get("nombre", ium_name)), "ium_id": ium_id, "rol": participation, "cantidad": 1, "particles": particles, "geometry": str(geo.get("geometria", "radial"))})
 				for flow in flow_rows:
 					var from_id := str(flow.get("ium_origen_id", ""))
 					var to_id := str(flow.get("ium_destino_id", ""))
