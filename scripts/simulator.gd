@@ -39,7 +39,6 @@ class FlowCanvas extends Control:
 		while gy < size.y:
 			draw_line(Vector2(0, gy), Vector2(size.x, gy), Color(0.42, 0.43, 0.55, 0.13), 1.0)
 			gy += 28.0
-		draw_string(ThemeDB.fallback_font, Vector2(18, 22), caption.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 36, 11, SUBTLE)
 		if nodes_data.is_empty():
 			draw_string(ThemeDB.fallback_font, Vector2(22, size.y * 0.52), "Selecciona una entidad para inspeccionar sus relaciones.", HORIZONTAL_ALIGNMENT_LEFT, size.x - 44, 14, INK)
 			return
@@ -184,7 +183,6 @@ func _build_ui() -> void:
 	var left := VBoxContainer.new()
 	left.add_theme_constant_override("separation", 10)
 	left_panel.add_child(_with_margin(left, 14))
-	left.add_child(_label("CATÁLOGO", 11, MUTED))
 	search_input = LineEdit.new()
 	search_input.placeholder_text = "Buscar nombre, regla o fórmula…"
 	search_input.clear_button_enabled = true
@@ -334,7 +332,6 @@ func _build_ui() -> void:
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 7)
 	right_panel.add_child(_with_margin(right, 14))
-	right.add_child(_label("DETALLES", 11, MUTED))
 	inspector_title = _label("Registro seleccionado", 17, ACCENT)
 	right.add_child(inspector_title)
 	var inspector_scroll := ScrollContainer.new()
@@ -1080,7 +1077,7 @@ func _render_graph() -> void:
 				{"role": "ORGANISMO", "title": str(selected.get("nombre", "Organismo")), "detail": str(selected.get("tipo_organismo", "Tipo biológico")), "color": ACCENT},
 				{"role": "ÓRGANOS", "title": "Órganos", "detail": organs_text if not organs_text.is_empty() else "Órganos no disponibles", "color": TEAL}
 			]
-	graph.set_graph(nodes, "CAPA CANÓNICA · " + current_key.to_upper())
+	graph.set_graph(nodes, "")
 
 
 func _render_inspector() -> void:
