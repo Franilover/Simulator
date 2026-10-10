@@ -264,6 +264,13 @@ class FlowCanvas extends Control:
 			points.append(p)
 		return {"points": points, "particle_radius": maxf(3.0, particle_radius)}
 
+	func _draw_dashed_circle(center: Vector2, radius: float, tint: Color, width: float) -> void:
+		var dash_count := 28
+		for dash_index in range(dash_count):
+			var start_angle := float(dash_index) * TAU / float(dash_count)
+			var end_angle := start_angle + TAU / float(dash_count) * 0.52
+			draw_arc(center, radius, start_angle, end_angle, 3, tint, width, true)
+
 	func _draw_ium_glyph(center: Vector2, radius: float, particles: Array, geometry: String, initial_mode: bool = false) -> void:
 		var points_data := _geometry_points(center, radius, geometry, particles.size())
 		var points: Array = points_data.get("points", [])
@@ -277,7 +284,7 @@ class FlowCanvas extends Control:
 
 		match geometry:
 			"puntual":
-				draw_arc(center, radius * 0.9, 0.0, TAU, 48, frame_soft, maxf(0.7, radius * 0.018), true)
+				_draw_dashed_circle(center, radius * 0.9, frame_soft, maxf(0.7, radius * 0.018))
 			"lineal":
 				if points.size() > 1:
 					var first: Vector2 = points[0]
@@ -297,13 +304,18 @@ class FlowCanvas extends Control:
 					draw_line(center, point, frame_soft, maxf(0.6, radius * 0.012), true)
 				draw_circle(center, maxf(1.0, radius * 0.04), frame)
 			"flexible":
-				for i in range(points.size() - 1):
-					var a: Vector2 = points[i]
-					var b: Vector2 = points[i + 1]
-					var midpoint := (a + b) * 0.5
-					midpoint.y += (-1.0 if i % 2 == 0 else 1.0) * radius * 0.22
-					draw_line(a, midpoint, frame, maxf(0.8, radius * 0.025), true)
-					draw_line(midpoint, b, frame, maxf(0.8, radius * 0.025), true)
+				if points.size() > 1:
+					var curve := PackedVector2Array([points[0]])
+					for i in range(points.size() - 1):
+						var a: Vector2 = points[i]
+						var b: Vector2 = points[i + 1]
+						var control := (a + b) * 0.5
+						control.y += (-1.0 if i % 2 == 0 else 1.0) * radius * 0.22
+						for step in range(1, 9):
+							var t := float(step) / 8.0
+							var inverse_t := 1.0 - t
+							curve.append(a * inverse_t * inverse_t + control * 2.0 * inverse_t * t + b * t * t)
+					draw_polyline(curve, frame, maxf(0.8, radius * 0.025), true)
 			"angular":
 				for i in range(points.size() - 1):
 					draw_line(points[i], points[i + 1], frame, maxf(0.8, radius * 0.035), true)
@@ -1603,7 +1615,10 @@ func _render_inspector() -> void:
 		var focus_id := str(focused_ium.get("id", ""))
 		inspector_title.text = "IUM · " + str(focused_ium.get("nombre", "IUM"))
 		_add_detail("Identidad", str(focused_ium.get("nombre", "IUM")))
-		_add_detail("Geometría canónica", str(_related_row("ium_geometry", "ium_id", focus_id).get("geometria_nombre", _related_row("ium_geometry", "ium_id", focus_id).get("geometria", "Radial"))), LAVENDER)
+		var focus_geometry := _related_row("ium_geometry", "ium_id", focus_id)
+		_add_detail("Geometría canónica", str(focus_geometry.get("geometria_nombre", focus_geometry.get("geometria", "Radial"))), LAVENDER)
+		_add_detail("Familia / dimensionalidad", str(focus_geometry.get("geometria_familia", "—")) + " / " + str(focus_geometry.get("dimensionalidad", "—")) + "D")
+		_add_detail("Criterio geométrico", str(focus_geometry.get("criterio_visual", focus_geometry.get("justificacion_geometrica", "Sin criterio visual registrado"))))
 		_add_detail("Partículas reales", _related_text("ium_particles", "ium_id", "nombre", "particulas", focus_id), TEAL)
 		var config := _related_row("ium_config", "ium_id", focus_id)
 		if not config.is_empty():
@@ -1653,6 +1668,10 @@ func _render_inspector() -> void:
 				_add_detail("Demanda estructural de Eterium", _pretty(demand), LAVENDER)
 		"iums":
 			_add_detail("Composición declarada", str(selected.get("detalle", "—")))
+			var geometry := _related_row("ium_geometry", "ium_id", str(selected.get("id", "")))
+			_add_detail("Geometría canónica", str(geometry.get("geometria_nombre", geometry.get("geometria", "Radial"))), LAVENDER)
+			_add_detail("Familia / dimensionalidad", str(geometry.get("geometria_familia", "—")) + " / " + str(geometry.get("dimensionalidad", "—")) + "D")
+			_add_detail("Criterio visual", str(geometry.get("criterio_visual", geometry.get("justificacion_geometrica", "Sin criterio visual registrado"))))
 			var conf := _related_row("ium_config", "ium_id", str(selected.get("id", "")))
 			if not conf.is_empty():
 				_add_detail("Configuración funcional", _pretty(conf), LAVENDER)
