@@ -2,9 +2,14 @@
 
 Aplicación nativa en Godot 4.7 para explorar visualmente el canon de Garlia y consultar el motor físico de Supabase.
 
+## Espacios de trabajo
+
+- **Wiki:** lectura del canon. Permite consultar fichas, fórmulas, leyes, relaciones y topologías; oculta las acciones de simulación y los controles que cambian estados.
+- **Sandbox:** espacio experimental separado. Permite evaluar montajes IUM, calcular demanda de Eterium para procesos y preparar una copia de un objeto en una sesión Sandbox. Se puede ajustar su temperatura, evaluar un proceso contra el estado experimental y descartar la sesión. La entidad canónica del catálogo no se modifica.
+
 ## Laboratorios incluidos
 
-- **Procesos:** catálogo canónico, entradas, transformaciones, salidas, conservación, leyes cuantitativas, fórmulas, variables requeridas y modelos de resolución.
+- **Procesos:** catálogo canónico, entradas, transformaciones, salidas, conservación, leyes cuantitativas, fórmulas, variables requeridas y modelos de resolución. Cuando existe configuración funcional, también representa los IUM participantes, las uniones, la topología, el Oris principal y la demanda estructural de Eterium registrada.
 - **Demanda de Eterium:** selecciona un proceso y un Oris realmente vinculado. Introduce el contexto físico como JSON y el simulador consulta la función RPC calcular_requerimiento_eterium_proceso_v1, que integra organización, demanda física, coste temporal y estabilización.
 - **Oris / IUM:** consulta Oris, IUMs y partículas TASI; revisa topologías funcionales, composición de partículas, régimen de Garin y demanda estructural.
 - **Montaje IUM experimental:** selecciona uno o más IUMs y mira la vista previa de sus salidas principales en el orden seleccionado. Después solicita simular_organizacion_ium_v1; el resultado expone salidas funcionales, uniones, procesos candidatos y ambigüedad. Los enlaces se envían como dirigidos.
@@ -20,6 +25,12 @@ Aplicación nativa en Godot 4.7 para explorar visualmente el canon de Garlia y c
 4. Se requiere conexión a Internet para consultar el canon actualizado.
 
 ## Usar el laboratorio
+
+### Wiki y Sandbox
+
+En **Wiki**, selecciona cualquier registro para leer su ficha. Las operaciones que calculan, montan o cambian estados permanecen ocultas/deshabilitadas. En **Sandbox**, puedes montar IUMs existentes para evaluarlos sin canonizar el resultado, calcular la demanda de Eterium de un proceso y crear una sesión experimental para un objeto. La temperatura se aplica a la copia Sandbox a través de `establecer_temperatura_sandbox`; no se escribe en `items`. Puedes evaluar un proceso con `resolver_ejecucion_proceso_sandbox_v1` y descartar la sesión al terminar.
+
+La síntesis de un IUM nuevo a partir de partículas consumiendo Eterium y la inserción validada de ese IUM en un objeto todavía requieren un contrato/RPC canónico específico. Simulator no inventa ese coste ni persiste un IUM ficticio: actualmente el motor permite consultar IUMs existentes, evaluar montajes y preparar objetos experimentales.
 
 ### Calcular una demanda de Eterium
 
