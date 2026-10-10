@@ -165,7 +165,7 @@ func _build_ui() -> void:
 	page.add_theme_constant_override("separation", 12)
 	outer.add_child(page)
 
-		mode_tabs = HBoxContainer.new()
+	mode_tabs = HBoxContainer.new()
 	mode_tabs.add_theme_constant_override("separation", 8)
 	page.add_child(mode_tabs)
 	subnav = HBoxContainer.new()
