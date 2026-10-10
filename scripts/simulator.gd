@@ -434,7 +434,12 @@ class FlowCanvas extends Control:
 			if not union is Dictionary:
 				continue
 			var kind := str(union.get("tipo_union", "dirigida"))
-			if not legend_items.any(func(item: Dictionary) -> bool: return str(item.get("kind", "")) == kind):
+			var already_added := false
+			for existing_item in legend_items:
+				if str(existing_item.get("kind", "")) == kind:
+					already_added = true
+					break
+			if not already_added:
 				legend_items.append({"kind": kind, "label": "dirigida" if kind == "dirigida" else ("recíproca" if kind == "reciproca" else "acoplamiento")})
 		for item in legend_items:
 			var kind := str(item.get("kind", "dirigida"))
@@ -922,6 +927,7 @@ func _reload_catalogues() -> void:
 func _set_mode(mode: String) -> void:
 	current_mode = mode
 	selected.clear()
+	focused_ium.clear()
 	selected_ids.clear()
 	last_rpc.clear()
 	result_panel.visible = false
@@ -947,6 +953,7 @@ func _set_mode(mode: String) -> void:
 func _choose_catalog(key: String) -> void:
 	current_key = key
 	selected.clear()
+	focused_ium.clear()
 	selected_ids.clear()
 	last_rpc.clear()
 	result_panel.visible = false
