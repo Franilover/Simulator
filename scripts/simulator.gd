@@ -2,26 +2,26 @@ extends Control
 
 const SupabaseConfig = preload("res://scripts/supabase_config.gd")
 
-const BG := Color("#11111b")
-const SURFACE := Color("#181825")
-const SURFACE_ALT := Color("#1e1e2e")
-const BORDER := Color("#313244")
-const TEXT_COLOR := Color("#cdd6f4")
-const MUTED := Color("#a6adc8")
-const ACCENT := Color("#b4befe")
-const TEAL := Color("#94e2d5")
-const GREEN := Color("#a6e3a1")
-const YELLOW := Color("#f9e2af")
-const ORANGE := Color("#fab387")
-const RED := Color("#f38ba8")
-const LAVENDER := Color("#cba6f7")
+const BG := Color("#0b0e14")
+const SURFACE := Color("#121722")
+const SURFACE_ALT := Color("#1a2230")
+const BORDER := Color("#303b4e")
+const TEXT_COLOR := Color("#edf2fa")
+const MUTED := Color("#b1bdd0")
+const ACCENT := Color("#a9b8ff")
+const TEAL := Color("#7ce0d0")
+const GREEN := Color("#8cdda6")
+const YELLOW := Color("#f3ce7a")
+const ORANGE := Color("#f3a77f")
+const RED := Color("#ff8eaa")
+const LAVENDER := Color("#c5a5ff")
 
 class FlowCanvas extends Control:
 	var nodes_data: Array = []
 	var caption := ""
 	const INK := Color("#cdd6f4")
 	const ACCENT := Color("#b4befe")
-	const SUBTLE := Color("#6c7086")
+	const SUBTLE := Color("#8793aa")
 	const LINE := Color("#45475a")
 
 	func set_graph(data: Array, title_text: String) -> void:
@@ -30,10 +30,10 @@ class FlowCanvas extends Control:
 		queue_redraw()
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color("#141420"), true)
+		draw_rect(Rect2(Vector2.ZERO, size), Color("#0e131d"), true)
 		var gx := 0.0
 		while gx < size.x:
-			draw_line(Vector2(gx, 0), Vector2(gx, size.y), Color(0.42, 0.43, 0.55, 0.13), 1.0)
+			draw_line(Vector2(gx, 0), Vector2(gx, size.y), Color(0.52, 0.60, 0.75, 0.10), 1.0)
 			gx += 28.0
 		var gy := 0.0
 		while gy < size.y:
@@ -72,12 +72,12 @@ class FlowCanvas extends Control:
 					Vector2(x2 - 7.0, y_mid + 4.0)
 				]), LINE)
 
-			draw_rect(rect, Color("#1b1b2b"), true)
+			draw_rect(rect, Color("#151c28"), true)
 			draw_rect(rect, tint, false, 1.4)
 			draw_rect(Rect2(rect.position, Vector2(box_width, 4.0)), tint, true)
 			draw_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 25), _short(str(data.get("role", "ETAPA")), 17).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 10, tint)
 			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 51), _wrap(_short(str(data.get("title", "Nodo")), 34), 18), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 14, -1, INK)
-			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#bac2de"))
+			draw_multiline_string(ThemeDB.fallback_font, Vector2(px + 9, start_y + 86), _wrap(_short(str(data.get("detail", "")), 96), 22), HORIZONTAL_ALIGNMENT_LEFT, box_width - 18, 11, -1, Color("#c5d0e3"))
 
 	func _short(value: String, length: int) -> String:
 		if value.length() <= length:
@@ -155,18 +155,18 @@ func _build_ui() -> void:
 
 	var outer := MarginContainer.new()
 	outer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	outer.add_theme_constant_override("margin_left", 16)
-	outer.add_theme_constant_override("margin_right", 16)
-	outer.add_theme_constant_override("margin_top", 12)
-	outer.add_theme_constant_override("margin_bottom", 10)
+	outer.add_theme_constant_override("margin_left", 20)
+	outer.add_theme_constant_override("margin_right", 20)
+	outer.add_theme_constant_override("margin_top", 16)
+	outer.add_theme_constant_override("margin_bottom", 16)
 	add_child(outer)
 
 	var page := VBoxContainer.new()
-	page.add_theme_constant_override("separation", 8)
+	page.add_theme_constant_override("separation", 12)
 	outer.add_child(page)
 
 	var header := HBoxContainer.new()
-	header.add_theme_constant_override("separation", 12)
+	header.add_theme_constant_override("separation", 16)
 	page.add_child(header)
 
 	var identity := VBoxContainer.new()
@@ -195,23 +195,23 @@ func _build_ui() -> void:
 	header.add_child(_button("↻ Actualizar", Callable(self, "_reload_catalogues"), false))
 
 	mode_tabs = HBoxContainer.new()
-	mode_tabs.add_theme_constant_override("separation", 6)
+	mode_tabs.add_theme_constant_override("separation", 8)
 	page.add_child(mode_tabs)
 	subnav = HBoxContainer.new()
-	subnav.add_theme_constant_override("separation", 6)
+	subnav.add_theme_constant_override("separation", 8)
 	page.add_child(subnav)
 
 	var body := HBoxContainer.new()
-	body.add_theme_constant_override("separation", 10)
+	body.add_theme_constant_override("separation", 14)
 	body.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	page.add_child(body)
 
 	var left_panel := _panel()
-	left_panel.custom_minimum_size = Vector2(270, 0)
+	left_panel.custom_minimum_size = Vector2(286, 0)
 	body.add_child(left_panel)
 	var left := VBoxContainer.new()
-	left.add_theme_constant_override("separation", 8)
-	left_panel.add_child(_with_margin(left, 11))
+	left.add_theme_constant_override("separation", 10)
+	left_panel.add_child(_with_margin(left, 14))
 	left.add_child(_label("CATÁLOGO", 11, MUTED))
 	search_input = LineEdit.new()
 	search_input.placeholder_text = "Buscar nombre, regla o fórmula…"
@@ -230,7 +230,7 @@ func _build_ui() -> void:
 	left.add_child(list_scroll)
 	catalog_list = VBoxContainer.new()
 	catalog_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	catalog_list.add_theme_constant_override("separation", 5)
+	catalog_list.add_theme_constant_override("separation", 7)
 	list_scroll.add_child(catalog_list)
 
 	selection_button = _button("Incluir en selección", Callable(self, "_toggle_selection"), false)
@@ -243,8 +243,8 @@ func _build_ui() -> void:
 	center_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(center_panel)
 	var center := VBoxContainer.new()
-	center.add_theme_constant_override("separation", 8)
-	center_panel.add_child(_with_margin(center, 11))
+	center.add_theme_constant_override("separation", 12)
+	center_panel.add_child(_with_margin(center, 14))
 
 	var center_header := HBoxContainer.new()
 	center.add_child(center_header)
@@ -278,7 +278,7 @@ func _build_ui() -> void:
 	process_lab_panel.visible = false
 	center.add_child(process_lab_panel)
 	var process_lab_content := VBoxContainer.new()
-	process_lab_content.add_theme_constant_override("separation", 6)
+	process_lab_content.add_theme_constant_override("separation", 9)
 	process_lab_panel.add_child(_with_margin(process_lab_content, 9))
 	process_lab_content.add_child(_label("DEMANDA DE ETERIUM", 11, TEAL))
 	process_requirements_label = _label("Magnitudes requeridas por la ley registrada.", 11, MUTED)
@@ -324,7 +324,7 @@ func _build_ui() -> void:
 	process_lab_content.add_child(context_row)
 	context_row.add_child(_label("CONTEXTO FÍSICO · JSON", 10, MUTED))
 	process_context_input = TextEdit.new()
-	process_context_input.custom_minimum_size.y = 62
+	process_context_input.custom_minimum_size.y = 76
 	process_context_input.placeholder_text = "{\"masa_objetivo\": 2, \"temperatura_inicial\": 300}"
 	process_context_input.text = "{}"
 	process_context_input.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
@@ -340,7 +340,7 @@ func _build_ui() -> void:
 
 	result_panel = _panel()
 	result_panel.visible = false
-	result_panel.custom_minimum_size.y = 94
+	result_panel.custom_minimum_size.y = 108
 	center.add_child(result_panel)
 	var result_content := VBoxContainer.new()
 	result_content.add_theme_constant_override("separation", 4)
@@ -348,15 +348,15 @@ func _build_ui() -> void:
 	result_content.add_child(_label("RESULTADO", 11, TEAL))
 	result_label = _label("", 12, TEXT_COLOR)
 	result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	result_label.custom_minimum_size.y = 42
+	result_label.custom_minimum_size.y = 50
 	result_content.add_child(result_label)
 
 	var right_panel := _panel()
-	right_panel.custom_minimum_size = Vector2(300, 0)
+	right_panel.custom_minimum_size = Vector2(318, 0)
 	body.add_child(right_panel)
 	var right := VBoxContainer.new()
 	right.add_theme_constant_override("separation", 7)
-	right_panel.add_child(_with_margin(right, 11))
+	right_panel.add_child(_with_margin(right, 14))
 	right.add_child(_label("DETALLES", 11, MUTED))
 	inspector_title = _label("Registro seleccionado", 15, ACCENT)
 	right.add_child(inspector_title)
@@ -366,7 +366,7 @@ func _build_ui() -> void:
 	right.add_child(inspector_scroll)
 	inspector_content = VBoxContainer.new()
 	inspector_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	inspector_content.add_theme_constant_override("separation", 7)
+	inspector_content.add_theme_constant_override("separation", 9)
 	inspector_scroll.add_child(inspector_content)
 
 
@@ -1313,14 +1313,14 @@ func _button(text_value: String, action: Callable, active: bool = false) -> Butt
 
 func _button_style(active: bool) -> StyleBoxFlat:
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#30304b") if active else Color("#1b1b2b")
-	style.border_color = Color("#6c6c9c") if active else BORDER
+	style.bg_color = Color("#283650") if active else Color("#171e2a")
+	style.border_color = Color("#8ea3ff") if active else BORDER
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(8)
-	style.content_margin_left = 10
-	style.content_margin_right = 10
-	style.content_margin_top = 8
-	style.content_margin_bottom = 8
+	style.set_corner_radius_all(10)
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 10
+	style.content_margin_bottom = 10
 	return style
 
 
@@ -1330,7 +1330,7 @@ func _panel() -> PanelContainer:
 	style.bg_color = SURFACE
 	style.border_color = BORDER
 	style.set_border_width_all(1)
-	style.set_corner_radius_all(12)
+	style.set_corner_radius_all(14)
 	style.content_margin_left = 0
 	style.content_margin_right = 0
 	style.content_margin_top = 0
@@ -1345,10 +1345,10 @@ func _field_style(focused: bool = false) -> StyleBoxFlat:
 	style.border_color = ACCENT if focused else BORDER
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(8)
-	style.content_margin_left = 8
-	style.content_margin_right = 8
-	style.content_margin_top = 6
-	style.content_margin_bottom = 6
+	style.content_margin_left = 12
+	style.content_margin_right = 12
+	style.content_margin_top = 8
+	style.content_margin_bottom = 8
 	return style
 
 
