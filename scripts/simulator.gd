@@ -1237,7 +1237,12 @@ func _add_detail(heading: String, value: String, tint: Color = TEXT_COLOR) -> vo
 	card.add_theme_stylebox_override("panel", card_style)
 	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inspector_content.add_child(card)
-	var margin := _with_margin(card, 11)
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 11)
+	margin.add_theme_constant_override("margin_right", 11)
+	margin.add_theme_constant_override("margin_top", 10)
+	margin.add_theme_constant_override("margin_bottom", 10)
+	margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	card.add_child(margin)
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 5)
