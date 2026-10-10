@@ -264,6 +264,26 @@ class FlowCanvas extends Control:
 			draw_circle(p, rr + 3.0, Color("#0e131d"))
 			draw_circle(p, rr, Color("#1b2435"))
 			draw_arc(p, rr, 0.0, TAU, 48, Color("#a9b8ff") if is_core else Color("#6576a8"), 1.6 if is_core else 1.0, true)
+			var node_particles: Array = node.get("particles", [])
+			var particle_total := mini(5, node_particles.size())
+			for particle_index in range(particle_total):
+				var particle: Dictionary = node_particles[particle_index]
+				var orbit_angle := -PI / 2.0 + float(particle_index) * TAU / float(maxi(1, particle_total))
+				var particle_center := p + Vector2(cos(orbit_angle), sin(orbit_angle)) * rr * 0.48
+				var particle_formula := str(particle.get("formula", "")).to_upper()
+				var particle_colors := {"A": Color("#6576a8"), "T": Color("#52658f"), "S": Color("#414f73"), "I": Color("#4b5b88")}
+				if particle_formula.length() >= 3:
+					for sector_index in range(3):
+						var sector_start := -PI / 2.0 + float(sector_index) * TAU / 3.0
+						var sector_poly := PackedVector2Array([particle_center])
+						for sector_step in range(7):
+							var sector_angle := sector_start + float(sector_step) / 6.0 * TAU / 3.0
+							sector_poly.append(particle_center + Vector2(cos(sector_angle), sin(sector_angle)) * 5.0)
+						var letter := particle_formula.substr(sector_index, 1)
+						draw_colored_polygon(sector_poly, particle_colors.get(letter, Color("#52658f")))
+				else:
+					draw_circle(particle_center, 5.0, Color("#52658f"))
+				draw_arc(particle_center, 5.0, 0.0, TAU, 16, Color("#b4c2f7"), 0.7, true)
 			var label := str(node.get("ium", node.get("ium_id", "IUM")))
 			draw_string(ThemeDB.fallback_font, p + Vector2(-rr, rr + 15), _short(label, 13), HORIZONTAL_ALIGNMENT_CENTER, rr * 2.0, 10, INK)
 		draw_string(ThemeDB.fallback_font, Vector2(12, 18), (topology_id + " · " + topology).to_upper(), HORIZONTAL_ALIGNMENT_LEFT, size.x - 24, 10, ACCENT)
@@ -1201,12 +1221,31 @@ func _render_graph() -> void:
 		"oris":
 			var canonical_graph := _related_row("oris_graph", "oris_id", str(selected.get("id", "")))
 			if not canonical_graph.is_empty() and canonical_graph.get("nodos", []) is Array:
+				var topology_nodes: Array = canonical_graph.get("nodos", [])
+				for node_index in range(topology_nodes.size()):
+					if not topology_nodes[node_index] is Dictionary:
+						continue
+					var topology_node: Dictionary = topology_nodes[node_index]
+					var node_ium_id := str(topology_node.get("ium_id", ""))
+					var node_particles: Array[Dictionary] = []
+					for particle_row in _related_rows("ium_particles", "ium_id", node_ium_id):
+						var particle_value: Variant = particle_row.get("particulas", {})
+						if particle_value is Array and not particle_value.is_empty():
+							particle_value = particle_value[0]
+						if particle_value is Dictionary:
+							var repeat_count := mini(5, maxi(1, int(particle_row.get("cantidad", 1))))
+							for repeat_index in range(repeat_count):
+								node_particles.append({"nombre": str(particle_value.get("nombre", "Partícula")), "formula": str(particle_value.get("formula", ""))})
+					var node_geometry := _related_row("ium_geometry", "ium_id", node_ium_id)
+					topology_node["particles"] = node_particles
+					topology_node["geometry"] = str(node_geometry.get("geometria", "radial"))
+					topology_nodes[node_index] = topology_node
 				graph.set_graph([{
 					"visual_type": "oris",
 					"title": str(selected.get("nombre", "Oris")),
 					"topology_id": str(canonical_graph.get("topologia_id", "")),
 					"topology": str(canonical_graph.get("topologia", "")),
-					"oris_nodes": canonical_graph.get("nodos", []),
+					"oris_nodes": topology_nodes,
 					"oris_unions": canonical_graph.get("uniones", [])
 				}], "")
 				return
